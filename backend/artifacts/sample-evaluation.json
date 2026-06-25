@@ -1,0 +1,71 @@
+{
+  "generatedAt": "2026-06-24T16:17:27.455Z",
+  "trainRows": 6,
+  "testRows": 2,
+  "metrics": [
+    {
+      "market": "1X2",
+      "displayName": "1X2",
+      "evaluatedRows": 6,
+      "selectionAccuracy": 33.3,
+      "brierScore": 0.3333
+    },
+    {
+      "market": "OVER_1_5_GOALS",
+      "displayName": "Over 1.5 gols",
+      "evaluatedRows": 4,
+      "selectionAccuracy": 0,
+      "brierScore": 1
+    },
+    {
+      "market": "OVER_2_5_GOALS",
+      "displayName": "Over 2.5 gols",
+      "evaluatedRows": 4,
+      "selectionAccuracy": 0,
+      "brierScore": 1
+    },
+    {
+      "market": "OVER_3_5_GOALS",
+      "displayName": "Over 3.5 gols",
+      "evaluatedRows": 4,
+      "selectionAccuracy": 0,
+      "brierScore": 1
+    },
+    {
+      "market": "UNDER_2_5_GOALS",
+      "displayName": "Under 2.5 gols",
+      "evaluatedRows": 4,
+      "selectionAccuracy": 0,
+      "brierScore": 1
+    },
+    {
+      "market": "UNDER_3_5_GOALS",
+      "displayName": "Under 3.5 gols",
+      "evaluatedRows": 4,
+      "selectionAccuracy": 0,
+      "brierScore": 1
+    },
+    {
+      "market": "BOTH_TEAMS_SCORE",
+      "displayName": "Ambas Marcam",
+      "evaluatedRows": 4,
+      "selectionAccuracy": 0,
+      "brierScore": 1
+    },
+    {
+      "market": "DOUBLE_CHANCE",
+      "displayName": "Dupla Chance",
+      "evaluatedRows": 6,
+      "selectionAccuracy": 66.7,
+      "brierScore": 0.3333
+    },
+    {
+      "market": "CORNERS",
+      "displayName": "Escanteios",
+      "evaluatedRows": 4,
+      "selectionAccuracy": 75,
+      "brierScore": 0.25
+    }
+  ],
+  "ignoredMarkets": []
+}

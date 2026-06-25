@@ -1,0 +1,44 @@
+.app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-app);
+  color: var(--text);
+  overflow: hidden;
+}
+
+.shell {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 228px minmax(0, 1fr) 376px;
+}
+
+/* Tablet: drop the analysis column (it opens as a drawer instead). */
+@media (max-width: 1240px) {
+  .shell {
+    grid-template-columns: 208px minmax(0, 1fr);
+  }
+}
+
+/* Mobile: single column; sidebar opens as a drawer. */
+@media (max-width: 780px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 6, 8, 0.55);
+  z-index: 55;
+}
+
+/* Backdrop only ever appears when a drawer can exist (≤1240px). */
+@media (max-width: 1240px) {
+  .backdrop.backdropShow {
+    display: block;
+  }
+}

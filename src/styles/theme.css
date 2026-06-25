@@ -1,0 +1,105 @@
+/* =========================================================================
+   BetIntel AI — design tokens & global base
+   Palette and metrics ported 1:1 from the Claude Design export.
+   ========================================================================= */
+
+:root {
+  /* Surfaces */
+  --bg-app: radial-gradient(150% 90% at 50% -30%, #14171c, #0a0c0f 60%);
+  --bg-base: #0a0c0f; /* match list */
+  --bg-header: #0e1115;
+  --bg-panel: #0c0f12; /* sidebar / analysis */
+  --bg-list-header: #0d1014;
+  --bg-card: #13171c;
+  --bg-input: #181c22;
+  --bg-track: #1c2127;
+
+  /* Borders / hairlines */
+  --border-soft: rgba(255, 255, 255, 0.06);
+  --border-mid: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.12);
+  --border-row: rgba(255, 255, 255, 0.045);
+  --scroll-thumb: #2a3038;
+  --scroll-thumb-hover: #363d47;
+
+  /* Brand accent */
+  --accent: #ff6a1a;
+  --accent-2: #ff9d4d;
+  --accent-3: #ff8c42;
+  --accent-soft: rgba(255, 106, 26, 0.13);
+  --accent-soft-2: rgba(255, 106, 26, 0.32);
+
+  /* Text ramp (dark -> light) */
+  --muted-3: #5e656f;
+  --muted-2: #6b727c;
+  --muted-4: #7d848d;
+  --muted: #8b929b;
+  --muted-5: #9aa1ab;
+  --muted-6: #a4abb4;
+  --text-2: #c0c5cd;
+  --text-3: #cfd4da;
+  --text: #eceef2;
+  --white: #ffffff;
+
+  /* Semantic / data colors */
+  --green: #2fbd6b;
+  --green-2: #3bd17a;
+  --amber: #e0a92e;
+  --red: #e0524e;
+  --red-2: #ec6b67;
+
+  /* League dots */
+  --lg-bra: #3bd17a;
+  --lg-pl: #6c8cff;
+  --lg-ll: #e0a92e;
+  --lg-l1: #4ec3e0;
+  --lg-bun: #e0524e;
+
+  --font: 'Archivo', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg-base);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#root {
+  height: 100vh;
+}
+
+/* Scrollbars (ported from the design) */
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scroll-thumb-hover);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+input::placeholder {
+  color: var(--muted-3);
+}
+
+button {
+  font-family: var(--font);
+}

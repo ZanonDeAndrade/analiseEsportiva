@@ -1,0 +1,1305 @@
+{
+  "version": 1,
+  "createdAt": "2026-06-24T16:17:25.869Z",
+  "minRows": 2,
+  "markets": {
+    "1X2": {
+      "market": "1X2",
+      "displayName": "1X2",
+      "status": "available",
+      "minRows": 2,
+      "usableRows": 8,
+      "columnsUsed": [
+        "FTHG",
+        "FTAG"
+      ],
+      "selections": [
+        {
+          "key": "home_win",
+          "label": "Casa"
+        },
+        {
+          "key": "draw",
+          "label": "Empate"
+        },
+        {
+          "key": "away_win",
+          "label": "Fora"
+        }
+      ],
+      "global": {
+        "segmentKey": "global",
+        "status": "available",
+        "sampleSize": 8,
+        "probabilities": {
+          "home_win": 50,
+          "draw": 25,
+          "away_win": 25
+        },
+        "positiveCounts": {
+          "home_win": 4,
+          "draw": 2,
+          "away_win": 2
+        },
+        "totalCounts": {
+          "home_win": 8,
+          "draw": 8,
+          "away_win": 8
+        }
+      },
+      "segments": {
+        "BRA": {
+          "segmentKey": "BRA",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "home_win": 50,
+            "draw": 25,
+            "away_win": 25
+          },
+          "positiveCounts": {
+            "home_win": 2,
+            "draw": 1,
+            "away_win": 1
+          },
+          "totalCounts": {
+            "home_win": 4,
+            "draw": 4,
+            "away_win": 4
+          }
+        },
+        "season:2025": {
+          "segmentKey": "season:2025",
+          "status": "available",
+          "sampleSize": 8,
+          "probabilities": {
+            "home_win": 50,
+            "draw": 25,
+            "away_win": 25
+          },
+          "positiveCounts": {
+            "home_win": 4,
+            "draw": 2,
+            "away_win": 2
+          },
+          "totalCounts": {
+            "home_win": 8,
+            "draw": 8,
+            "away_win": 8
+          }
+        },
+        "BRA::2025": {
+          "segmentKey": "BRA::2025",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "home_win": 50,
+            "draw": 25,
+            "away_win": 25
+          },
+          "positiveCounts": {
+            "home_win": 2,
+            "draw": 1,
+            "away_win": 1
+          },
+          "totalCounts": {
+            "home_win": 4,
+            "draw": 4,
+            "away_win": 4
+          }
+        },
+        "PL": {
+          "segmentKey": "PL",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "home_win": 50,
+            "draw": 25,
+            "away_win": 25
+          },
+          "positiveCounts": {
+            "home_win": 2,
+            "draw": 1,
+            "away_win": 1
+          },
+          "totalCounts": {
+            "home_win": 4,
+            "draw": 4,
+            "away_win": 4
+          }
+        },
+        "PL::2025": {
+          "segmentKey": "PL::2025",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "home_win": 50,
+            "draw": 25,
+            "away_win": 25
+          },
+          "positiveCounts": {
+            "home_win": 2,
+            "draw": 1,
+            "away_win": 1
+          },
+          "totalCounts": {
+            "home_win": 4,
+            "draw": 4,
+            "away_win": 4
+          }
+        }
+      }
+    },
+    "OVER_1_5_GOALS": {
+      "market": "OVER_1_5_GOALS",
+      "displayName": "Over 1.5 gols",
+      "status": "available",
+      "minRows": 2,
+      "usableRows": 8,
+      "columnsUsed": [
+        "FTHG",
+        "FTAG"
+      ],
+      "selections": [
+        {
+          "key": "over_1_5",
+          "label": "Over 1.5"
+        },
+        {
+          "key": "under_or_equal_1_5",
+          "label": "Até 1.5"
+        }
+      ],
+      "global": {
+        "segmentKey": "global",
+        "status": "available",
+        "sampleSize": 8,
+        "probabilities": {
+          "over_1_5": 75,
+          "under_or_equal_1_5": 25
+        },
+        "positiveCounts": {
+          "over_1_5": 6,
+          "under_or_equal_1_5": 2
+        },
+        "totalCounts": {
+          "over_1_5": 8,
+          "under_or_equal_1_5": 8
+        }
+      },
+      "segments": {
+        "BRA": {
+          "segmentKey": "BRA",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "over_1_5": 100,
+            "under_or_equal_1_5": 0
+          },
+          "positiveCounts": {
+            "over_1_5": 4,
+            "under_or_equal_1_5": 0
+          },
+          "totalCounts": {
+            "over_1_5": 4,
+            "under_or_equal_1_5": 4
+          }
+        },
+        "season:2025": {
+          "segmentKey": "season:2025",
+          "status": "available",
+          "sampleSize": 8,
+          "probabilities": {
+            "over_1_5": 75,
+            "under_or_equal_1_5": 25
+          },
+          "positiveCounts": {
+            "over_1_5": 6,
+            "under_or_equal_1_5": 2
+          },
+          "totalCounts": {
+            "over_1_5": 8,
+            "under_or_equal_1_5": 8
+          }
+        },
+        "BRA::2025": {
+          "segmentKey": "BRA::2025",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "over_1_5": 100,
+            "under_or_equal_1_5": 0
+          },
+          "positiveCounts": {
+            "over_1_5": 4,
+            "under_or_equal_1_5": 0
+          },
+          "totalCounts": {
+            "over_1_5": 4,
+            "under_or_equal_1_5": 4
+          }
+        },
+        "PL": {
+          "segmentKey": "PL",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "over_1_5": 50,
+            "under_or_equal_1_5": 50
+          },
+          "positiveCounts": {
+            "over_1_5": 2,
+            "under_or_equal_1_5": 2
+          },
+          "totalCounts": {
+            "over_1_5": 4,
+            "under_or_equal_1_5": 4
+          }
+        },
+        "PL::2025": {
+          "segmentKey": "PL::2025",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "over_1_5": 50,
+            "under_or_equal_1_5": 50
+          },
+          "positiveCounts": {
+            "over_1_5": 2,
+            "under_or_equal_1_5": 2
+          },
+          "totalCounts": {
+            "over_1_5": 4,
+            "under_or_equal_1_5": 4
+          }
+        }
+      }
+    },
+    "OVER_2_5_GOALS": {
+      "market": "OVER_2_5_GOALS",
+      "displayName": "Over 2.5 gols",
+      "status": "available",
+      "minRows": 2,
+      "usableRows": 8,
+      "columnsUsed": [
+        "FTHG",
+        "FTAG"
+      ],
+      "selections": [
+        {
+          "key": "over_2_5",
+          "label": "Over 2.5"
+        },
+        {
+          "key": "under_or_equal_2_5",
+          "label": "Até 2.5"
+        }
+      ],
+      "global": {
+        "segmentKey": "global",
+        "status": "available",
+        "sampleSize": 8,
+        "probabilities": {
+          "over_2_5": 50,
+          "under_or_equal_2_5": 50
+        },
+        "positiveCounts": {
+          "over_2_5": 4,
+          "under_or_equal_2_5": 4
+        },
+        "totalCounts": {
+          "over_2_5": 8,
+          "under_or_equal_2_5": 8
+        }
+      },
+      "segments": {
+        "BRA": {
+          "segmentKey": "BRA",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "over_2_5": 50,
+            "under_or_equal_2_5": 50
+          },
+          "positiveCounts": {
+            "over_2_5": 2,
+            "under_or_equal_2_5": 2
+          },
+          "totalCounts": {
+            "over_2_5": 4,
+            "under_or_equal_2_5": 4
+          }
+        },
+        "season:2025": {
+          "segmentKey": "season:2025",
+          "status": "available",
+          "sampleSize": 8,
+          "probabilities": {
+            "over_2_5": 50,
+            "under_or_equal_2_5": 50
+          },
+          "positiveCounts": {
+            "over_2_5": 4,
+            "under_or_equal_2_5": 4
+          },
+          "totalCounts": {
+            "over_2_5": 8,
+            "under_or_equal_2_5": 8
+          }
+        },
+        "BRA::2025": {
+          "segmentKey": "BRA::2025",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "over_2_5": 50,
+            "under_or_equal_2_5": 50
+          },
+          "positiveCounts": {
+            "over_2_5": 2,
+            "under_or_equal_2_5": 2
+          },
+          "totalCounts": {
+            "over_2_5": 4,
+            "under_or_equal_2_5": 4
+          }
+        },
+        "PL": {
+          "segmentKey": "PL",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "over_2_5": 50,
+            "under_or_equal_2_5": 50
+          },
+          "positiveCounts": {
+            "over_2_5": 2,
+            "under_or_equal_2_5": 2
+          },
+          "totalCounts": {
+            "over_2_5": 4,
+            "under_or_equal_2_5": 4
+          }
+        },
+        "PL::2025": {
+          "segmentKey": "PL::2025",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "over_2_5": 50,
+            "under_or_equal_2_5": 50
+          },
+          "positiveCounts": {
+            "over_2_5": 2,
+            "under_or_equal_2_5": 2
+          },
+          "totalCounts": {
+            "over_2_5": 4,
+            "under_or_equal_2_5": 4
+          }
+        }
+      }
+    },
+    "OVER_3_5_GOALS": {
+      "market": "OVER_3_5_GOALS",
+      "displayName": "Over 3.5 gols",
+      "status": "available",
+      "minRows": 2,
+      "usableRows": 8,
+      "columnsUsed": [
+        "FTHG",
+        "FTAG"
+      ],
+      "selections": [
+        {
+          "key": "over_3_5",
+          "label": "Over 3.5"
+        },
+        {
+          "key": "under_or_equal_3_5",
+          "label": "Até 3.5"
+        }
+      ],
+      "global": {
+        "segmentKey": "global",
+        "status": "available",
+        "sampleSize": 8,
+        "probabilities": {
+          "over_3_5": 37.5,
+          "under_or_equal_3_5": 62.5
+        },
+        "positiveCounts": {
+          "over_3_5": 3,
+          "under_or_equal_3_5": 5
+        },
+        "totalCounts": {
+          "over_3_5": 8,
+          "under_or_equal_3_5": 8
+        }
+      },
+      "segments": {
+        "BRA": {
+          "segmentKey": "BRA",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "over_3_5": 25,
+            "under_or_equal_3_5": 75
+          },
+          "positiveCounts": {
+            "over_3_5": 1,
+            "under_or_equal_3_5": 3
+          },
+          "totalCounts": {
+            "over_3_5": 4,
+            "under_or_equal_3_5": 4
+          }
+        },
+        "season:2025": {
+          "segmentKey": "season:2025",
+          "status": "available",
+          "sampleSize": 8,
+          "probabilities": {
+            "over_3_5": 37.5,
+            "under_or_equal_3_5": 62.5
+          },
+          "positiveCounts": {
+            "over_3_5": 3,
+            "under_or_equal_3_5": 5
+          },
+          "totalCounts": {
+            "over_3_5": 8,
+            "under_or_equal_3_5": 8
+          }
+        },
+        "BRA::2025": {
+          "segmentKey": "BRA::2025",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "over_3_5": 25,
+            "under_or_equal_3_5": 75
+          },
+          "positiveCounts": {
+            "over_3_5": 1,
+            "under_or_equal_3_5": 3
+          },
+          "totalCounts": {
+            "over_3_5": 4,
+            "under_or_equal_3_5": 4
+          }
+        },
+        "PL": {
+          "segmentKey": "PL",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "over_3_5": 50,
+            "under_or_equal_3_5": 50
+          },
+          "positiveCounts": {
+            "over_3_5": 2,
+            "under_or_equal_3_5": 2
+          },
+          "totalCounts": {
+            "over_3_5": 4,
+            "under_or_equal_3_5": 4
+          }
+        },
+        "PL::2025": {
+          "segmentKey": "PL::2025",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "over_3_5": 50,
+            "under_or_equal_3_5": 50
+          },
+          "positiveCounts": {
+            "over_3_5": 2,
+            "under_or_equal_3_5": 2
+          },
+          "totalCounts": {
+            "over_3_5": 4,
+            "under_or_equal_3_5": 4
+          }
+        }
+      }
+    },
+    "UNDER_2_5_GOALS": {
+      "market": "UNDER_2_5_GOALS",
+      "displayName": "Under 2.5 gols",
+      "status": "available",
+      "minRows": 2,
+      "usableRows": 8,
+      "columnsUsed": [
+        "FTHG",
+        "FTAG"
+      ],
+      "selections": [
+        {
+          "key": "under_2_5",
+          "label": "Under 2.5"
+        },
+        {
+          "key": "over_or_equal_2_5",
+          "label": "2.5+"
+        }
+      ],
+      "global": {
+        "segmentKey": "global",
+        "status": "available",
+        "sampleSize": 8,
+        "probabilities": {
+          "under_2_5": 50,
+          "over_or_equal_2_5": 50
+        },
+        "positiveCounts": {
+          "under_2_5": 4,
+          "over_or_equal_2_5": 4
+        },
+        "totalCounts": {
+          "under_2_5": 8,
+          "over_or_equal_2_5": 8
+        }
+      },
+      "segments": {
+        "BRA": {
+          "segmentKey": "BRA",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "under_2_5": 50,
+            "over_or_equal_2_5": 50
+          },
+          "positiveCounts": {
+            "under_2_5": 2,
+            "over_or_equal_2_5": 2
+          },
+          "totalCounts": {
+            "under_2_5": 4,
+            "over_or_equal_2_5": 4
+          }
+        },
+        "season:2025": {
+          "segmentKey": "season:2025",
+          "status": "available",
+          "sampleSize": 8,
+          "probabilities": {
+            "under_2_5": 50,
+            "over_or_equal_2_5": 50
+          },
+          "positiveCounts": {
+            "under_2_5": 4,
+            "over_or_equal_2_5": 4
+          },
+          "totalCounts": {
+            "under_2_5": 8,
+            "over_or_equal_2_5": 8
+          }
+        },
+        "BRA::2025": {
+          "segmentKey": "BRA::2025",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "under_2_5": 50,
+            "over_or_equal_2_5": 50
+          },
+          "positiveCounts": {
+            "under_2_5": 2,
+            "over_or_equal_2_5": 2
+          },
+          "totalCounts": {
+            "under_2_5": 4,
+            "over_or_equal_2_5": 4
+          }
+        },
+        "PL": {
+          "segmentKey": "PL",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "under_2_5": 50,
+            "over_or_equal_2_5": 50
+          },
+          "positiveCounts": {
+            "under_2_5": 2,
+            "over_or_equal_2_5": 2
+          },
+          "totalCounts": {
+            "under_2_5": 4,
+            "over_or_equal_2_5": 4
+          }
+        },
+        "PL::2025": {
+          "segmentKey": "PL::2025",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "under_2_5": 50,
+            "over_or_equal_2_5": 50
+          },
+          "positiveCounts": {
+            "under_2_5": 2,
+            "over_or_equal_2_5": 2
+          },
+          "totalCounts": {
+            "under_2_5": 4,
+            "over_or_equal_2_5": 4
+          }
+        }
+      }
+    },
+    "UNDER_3_5_GOALS": {
+      "market": "UNDER_3_5_GOALS",
+      "displayName": "Under 3.5 gols",
+      "status": "available",
+      "minRows": 2,
+      "usableRows": 8,
+      "columnsUsed": [
+        "FTHG",
+        "FTAG"
+      ],
+      "selections": [
+        {
+          "key": "under_3_5",
+          "label": "Under 3.5"
+        },
+        {
+          "key": "over_or_equal_3_5",
+          "label": "3.5+"
+        }
+      ],
+      "global": {
+        "segmentKey": "global",
+        "status": "available",
+        "sampleSize": 8,
+        "probabilities": {
+          "under_3_5": 62.5,
+          "over_or_equal_3_5": 37.5
+        },
+        "positiveCounts": {
+          "under_3_5": 5,
+          "over_or_equal_3_5": 3
+        },
+        "totalCounts": {
+          "under_3_5": 8,
+          "over_or_equal_3_5": 8
+        }
+      },
+      "segments": {
+        "BRA": {
+          "segmentKey": "BRA",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "under_3_5": 75,
+            "over_or_equal_3_5": 25
+          },
+          "positiveCounts": {
+            "under_3_5": 3,
+            "over_or_equal_3_5": 1
+          },
+          "totalCounts": {
+            "under_3_5": 4,
+            "over_or_equal_3_5": 4
+          }
+        },
+        "season:2025": {
+          "segmentKey": "season:2025",
+          "status": "available",
+          "sampleSize": 8,
+          "probabilities": {
+            "under_3_5": 62.5,
+            "over_or_equal_3_5": 37.5
+          },
+          "positiveCounts": {
+            "under_3_5": 5,
+            "over_or_equal_3_5": 3
+          },
+          "totalCounts": {
+            "under_3_5": 8,
+            "over_or_equal_3_5": 8
+          }
+        },
+        "BRA::2025": {
+          "segmentKey": "BRA::2025",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "under_3_5": 75,
+            "over_or_equal_3_5": 25
+          },
+          "positiveCounts": {
+            "under_3_5": 3,
+            "over_or_equal_3_5": 1
+          },
+          "totalCounts": {
+            "under_3_5": 4,
+            "over_or_equal_3_5": 4
+          }
+        },
+        "PL": {
+          "segmentKey": "PL",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "under_3_5": 50,
+            "over_or_equal_3_5": 50
+          },
+          "positiveCounts": {
+            "under_3_5": 2,
+            "over_or_equal_3_5": 2
+          },
+          "totalCounts": {
+            "under_3_5": 4,
+            "over_or_equal_3_5": 4
+          }
+        },
+        "PL::2025": {
+          "segmentKey": "PL::2025",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "under_3_5": 50,
+            "over_or_equal_3_5": 50
+          },
+          "positiveCounts": {
+            "under_3_5": 2,
+            "over_or_equal_3_5": 2
+          },
+          "totalCounts": {
+            "under_3_5": 4,
+            "over_or_equal_3_5": 4
+          }
+        }
+      }
+    },
+    "BOTH_TEAMS_SCORE": {
+      "market": "BOTH_TEAMS_SCORE",
+      "displayName": "Ambas Marcam",
+      "status": "available",
+      "minRows": 2,
+      "usableRows": 8,
+      "columnsUsed": [
+        "FTHG",
+        "FTAG"
+      ],
+      "selections": [
+        {
+          "key": "btts_yes",
+          "label": "Sim"
+        },
+        {
+          "key": "btts_no",
+          "label": "Não"
+        }
+      ],
+      "global": {
+        "segmentKey": "global",
+        "status": "available",
+        "sampleSize": 8,
+        "probabilities": {
+          "btts_yes": 62.5,
+          "btts_no": 37.5
+        },
+        "positiveCounts": {
+          "btts_yes": 5,
+          "btts_no": 3
+        },
+        "totalCounts": {
+          "btts_yes": 8,
+          "btts_no": 8
+        }
+      },
+      "segments": {
+        "BRA": {
+          "segmentKey": "BRA",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "btts_yes": 75,
+            "btts_no": 25
+          },
+          "positiveCounts": {
+            "btts_yes": 3,
+            "btts_no": 1
+          },
+          "totalCounts": {
+            "btts_yes": 4,
+            "btts_no": 4
+          }
+        },
+        "season:2025": {
+          "segmentKey": "season:2025",
+          "status": "available",
+          "sampleSize": 8,
+          "probabilities": {
+            "btts_yes": 62.5,
+            "btts_no": 37.5
+          },
+          "positiveCounts": {
+            "btts_yes": 5,
+            "btts_no": 3
+          },
+          "totalCounts": {
+            "btts_yes": 8,
+            "btts_no": 8
+          }
+        },
+        "BRA::2025": {
+          "segmentKey": "BRA::2025",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "btts_yes": 75,
+            "btts_no": 25
+          },
+          "positiveCounts": {
+            "btts_yes": 3,
+            "btts_no": 1
+          },
+          "totalCounts": {
+            "btts_yes": 4,
+            "btts_no": 4
+          }
+        },
+        "PL": {
+          "segmentKey": "PL",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "btts_yes": 50,
+            "btts_no": 50
+          },
+          "positiveCounts": {
+            "btts_yes": 2,
+            "btts_no": 2
+          },
+          "totalCounts": {
+            "btts_yes": 4,
+            "btts_no": 4
+          }
+        },
+        "PL::2025": {
+          "segmentKey": "PL::2025",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "btts_yes": 50,
+            "btts_no": 50
+          },
+          "positiveCounts": {
+            "btts_yes": 2,
+            "btts_no": 2
+          },
+          "totalCounts": {
+            "btts_yes": 4,
+            "btts_no": 4
+          }
+        }
+      }
+    },
+    "DOUBLE_CHANCE": {
+      "market": "DOUBLE_CHANCE",
+      "displayName": "Dupla Chance",
+      "status": "available",
+      "minRows": 2,
+      "usableRows": 8,
+      "columnsUsed": [
+        "FTHG",
+        "FTAG"
+      ],
+      "selections": [
+        {
+          "key": "1x",
+          "label": "1X"
+        },
+        {
+          "key": "12",
+          "label": "12"
+        },
+        {
+          "key": "x2",
+          "label": "X2"
+        }
+      ],
+      "global": {
+        "segmentKey": "global",
+        "status": "available",
+        "sampleSize": 8,
+        "probabilities": {
+          "12": 75,
+          "1x": 75,
+          "x2": 50
+        },
+        "positiveCounts": {
+          "12": 6,
+          "1x": 6,
+          "x2": 4
+        },
+        "totalCounts": {
+          "12": 8,
+          "1x": 8,
+          "x2": 8
+        }
+      },
+      "segments": {
+        "BRA": {
+          "segmentKey": "BRA",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "12": 75,
+            "1x": 75,
+            "x2": 50
+          },
+          "positiveCounts": {
+            "12": 3,
+            "1x": 3,
+            "x2": 2
+          },
+          "totalCounts": {
+            "12": 4,
+            "1x": 4,
+            "x2": 4
+          }
+        },
+        "season:2025": {
+          "segmentKey": "season:2025",
+          "status": "available",
+          "sampleSize": 8,
+          "probabilities": {
+            "12": 75,
+            "1x": 75,
+            "x2": 50
+          },
+          "positiveCounts": {
+            "12": 6,
+            "1x": 6,
+            "x2": 4
+          },
+          "totalCounts": {
+            "12": 8,
+            "1x": 8,
+            "x2": 8
+          }
+        },
+        "BRA::2025": {
+          "segmentKey": "BRA::2025",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "12": 75,
+            "1x": 75,
+            "x2": 50
+          },
+          "positiveCounts": {
+            "12": 3,
+            "1x": 3,
+            "x2": 2
+          },
+          "totalCounts": {
+            "12": 4,
+            "1x": 4,
+            "x2": 4
+          }
+        },
+        "PL": {
+          "segmentKey": "PL",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "12": 75,
+            "1x": 75,
+            "x2": 50
+          },
+          "positiveCounts": {
+            "12": 3,
+            "1x": 3,
+            "x2": 2
+          },
+          "totalCounts": {
+            "12": 4,
+            "1x": 4,
+            "x2": 4
+          }
+        },
+        "PL::2025": {
+          "segmentKey": "PL::2025",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "12": 75,
+            "1x": 75,
+            "x2": 50
+          },
+          "positiveCounts": {
+            "12": 3,
+            "1x": 3,
+            "x2": 2
+          },
+          "totalCounts": {
+            "12": 4,
+            "1x": 4,
+            "x2": 4
+          }
+        }
+      }
+    },
+    "CARDS": {
+      "market": "CARDS",
+      "displayName": "Cartões",
+      "status": "available",
+      "minRows": 2,
+      "usableRows": 4,
+      "columnsUsed": [
+        "HY",
+        "AY",
+        "HR",
+        "AR"
+      ],
+      "selections": [
+        {
+          "key": "cards_over_3_5",
+          "label": "Over 3.5 cartões"
+        },
+        {
+          "key": "cards_over_4_5",
+          "label": "Over 4.5 cartões"
+        },
+        {
+          "key": "cards_over_5_5",
+          "label": "Over 5.5 cartões"
+        }
+      ],
+      "global": {
+        "segmentKey": "global",
+        "status": "available",
+        "sampleSize": 4,
+        "probabilities": {
+          "cards_over_3_5": 100,
+          "cards_over_4_5": 75,
+          "cards_over_5_5": 50
+        },
+        "positiveCounts": {
+          "cards_over_3_5": 4,
+          "cards_over_4_5": 3,
+          "cards_over_5_5": 2
+        },
+        "totalCounts": {
+          "cards_over_3_5": 4,
+          "cards_over_4_5": 4,
+          "cards_over_5_5": 4
+        }
+      },
+      "segments": {
+        "BRA": {
+          "segmentKey": "BRA",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "cards_over_3_5": 100,
+            "cards_over_4_5": 75,
+            "cards_over_5_5": 50
+          },
+          "positiveCounts": {
+            "cards_over_3_5": 4,
+            "cards_over_4_5": 3,
+            "cards_over_5_5": 2
+          },
+          "totalCounts": {
+            "cards_over_3_5": 4,
+            "cards_over_4_5": 4,
+            "cards_over_5_5": 4
+          }
+        },
+        "season:2025": {
+          "segmentKey": "season:2025",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "cards_over_3_5": 100,
+            "cards_over_4_5": 75,
+            "cards_over_5_5": 50
+          },
+          "positiveCounts": {
+            "cards_over_3_5": 4,
+            "cards_over_4_5": 3,
+            "cards_over_5_5": 2
+          },
+          "totalCounts": {
+            "cards_over_3_5": 4,
+            "cards_over_4_5": 4,
+            "cards_over_5_5": 4
+          }
+        },
+        "BRA::2025": {
+          "segmentKey": "BRA::2025",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "cards_over_3_5": 100,
+            "cards_over_4_5": 75,
+            "cards_over_5_5": 50
+          },
+          "positiveCounts": {
+            "cards_over_3_5": 4,
+            "cards_over_4_5": 3,
+            "cards_over_5_5": 2
+          },
+          "totalCounts": {
+            "cards_over_3_5": 4,
+            "cards_over_4_5": 4,
+            "cards_over_5_5": 4
+          }
+        }
+      }
+    },
+    "CORNERS": {
+      "market": "CORNERS",
+      "displayName": "Escanteios",
+      "status": "available",
+      "minRows": 2,
+      "usableRows": 8,
+      "columnsUsed": [
+        "HC",
+        "AC"
+      ],
+      "selections": [
+        {
+          "key": "corners_over_8_5",
+          "label": "Over 8.5 escanteios"
+        },
+        {
+          "key": "corners_over_9_5",
+          "label": "Over 9.5 escanteios"
+        }
+      ],
+      "global": {
+        "segmentKey": "global",
+        "status": "available",
+        "sampleSize": 8,
+        "probabilities": {
+          "corners_over_8_5": 100,
+          "corners_over_9_5": 87.5
+        },
+        "positiveCounts": {
+          "corners_over_8_5": 8,
+          "corners_over_9_5": 7
+        },
+        "totalCounts": {
+          "corners_over_8_5": 8,
+          "corners_over_9_5": 8
+        }
+      },
+      "segments": {
+        "BRA": {
+          "segmentKey": "BRA",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "corners_over_8_5": 100,
+            "corners_over_9_5": 100
+          },
+          "positiveCounts": {
+            "corners_over_8_5": 4,
+            "corners_over_9_5": 4
+          },
+          "totalCounts": {
+            "corners_over_8_5": 4,
+            "corners_over_9_5": 4
+          }
+        },
+        "season:2025": {
+          "segmentKey": "season:2025",
+          "status": "available",
+          "sampleSize": 8,
+          "probabilities": {
+            "corners_over_8_5": 100,
+            "corners_over_9_5": 87.5
+          },
+          "positiveCounts": {
+            "corners_over_8_5": 8,
+            "corners_over_9_5": 7
+          },
+          "totalCounts": {
+            "corners_over_8_5": 8,
+            "corners_over_9_5": 8
+          }
+        },
+        "BRA::2025": {
+          "segmentKey": "BRA::2025",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "corners_over_8_5": 100,
+            "corners_over_9_5": 100
+          },
+          "positiveCounts": {
+            "corners_over_8_5": 4,
+            "corners_over_9_5": 4
+          },
+          "totalCounts": {
+            "corners_over_8_5": 4,
+            "corners_over_9_5": 4
+          }
+        },
+        "PL": {
+          "segmentKey": "PL",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "corners_over_8_5": 100,
+            "corners_over_9_5": 75
+          },
+          "positiveCounts": {
+            "corners_over_8_5": 4,
+            "corners_over_9_5": 3
+          },
+          "totalCounts": {
+            "corners_over_8_5": 4,
+            "corners_over_9_5": 4
+          }
+        },
+        "PL::2025": {
+          "segmentKey": "PL::2025",
+          "status": "available",
+          "sampleSize": 4,
+          "probabilities": {
+            "corners_over_8_5": 100,
+            "corners_over_9_5": 75
+          },
+          "positiveCounts": {
+            "corners_over_8_5": 4,
+            "corners_over_9_5": 3
+          },
+          "totalCounts": {
+            "corners_over_8_5": 4,
+            "corners_over_9_5": 4
+          }
+        }
+      }
+    }
+  },
+  "featureEngineering": {
+    "detectedColumns": [
+      "Div",
+      "Season",
+      "Date",
+      "HomeTeam",
+      "AwayTeam",
+      "FTHG",
+      "FTAG",
+      "FTR",
+      "HC",
+      "AC",
+      "HY",
+      "AY",
+      "HR",
+      "AR"
+    ],
+    "acceptedRows": 8,
+    "rejectedRows": []
+  }
+}

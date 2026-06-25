@@ -1,0 +1,31 @@
+{
+  "name": "betintel-ai",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "BetIntel AI — plataforma acadêmica de análise probabilística de jogos de futebol (dados simulados).",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build && npm run backend:build",
+    "preview": "vite preview",
+    "backend:build": "tsc -p backend/tsconfig.json",
+    "backend:test": "npm run backend:build && node --test \"backend/dist/**/*.test.js\"",
+    "backend:sync": "npm run backend:build && node backend/dist/cli/sync-data.js",
+    "backend:train": "npm run backend:build && node backend/dist/cli/train.js",
+    "backend:evaluate": "npm run backend:build && node backend/dist/cli/evaluate.js",
+    "backend:backtest": "npm run backend:build && node backend/dist/cli/backtest.js",
+    "backend:serve": "npm run backend:build && node backend/dist/server.js"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}

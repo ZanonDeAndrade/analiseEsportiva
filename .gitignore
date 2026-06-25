@@ -1,0 +1,26 @@
+# Dependencias
+node_modules/
+
+# Saida de build (regenerada por `npm run build`)
+dist/
+backend/dist/
+*.tsbuildinfo
+
+# Segredos e ambiente local (NUNCA versionar a chave da API)
+.env
+.env.local
+.env.*.local
+
+# Logs e arquivos temporarios
+*.log
+trabalho2.pdf
+trabalho2.txt
+
+# Configuracao local de ferramentas
+.claude/settings.local.json
+
+# Sistema operacional / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

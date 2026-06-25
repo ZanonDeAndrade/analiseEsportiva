@@ -1,0 +1,88 @@
+{
+  "generatedAt": "2026-06-25T12:00:32.741Z",
+  "initialWindow": 5,
+  "evaluatedRows": 4866,
+  "metrics": [
+    {
+      "market": "1X2",
+      "displayName": "1X2",
+      "evaluatedRows": 14490,
+      "selectionAccuracy": 69.1,
+      "brierScore": 0.2069,
+      "coverage": 99.3
+    },
+    {
+      "market": "OVER_1_5_GOALS",
+      "displayName": "Over 1.5 gols",
+      "evaluatedRows": 9660,
+      "selectionAccuracy": 75.9,
+      "brierScore": 0.1862,
+      "coverage": 99.3
+    },
+    {
+      "market": "OVER_2_5_GOALS",
+      "displayName": "Over 2.5 gols",
+      "evaluatedRows": 9660,
+      "selectionAccuracy": 55.4,
+      "brierScore": 0.2503,
+      "coverage": 99.3
+    },
+    {
+      "market": "OVER_3_5_GOALS",
+      "displayName": "Over 3.5 gols",
+      "evaluatedRows": 9660,
+      "selectionAccuracy": 71,
+      "brierScore": 0.2053,
+      "coverage": 99.3
+    },
+    {
+      "market": "UNDER_2_5_GOALS",
+      "displayName": "Under 2.5 gols",
+      "evaluatedRows": 9660,
+      "selectionAccuracy": 55.4,
+      "brierScore": 0.2503,
+      "coverage": 99.3
+    },
+    {
+      "market": "UNDER_3_5_GOALS",
+      "displayName": "Under 3.5 gols",
+      "evaluatedRows": 9660,
+      "selectionAccuracy": 71,
+      "brierScore": 0.2053,
+      "coverage": 99.3
+    },
+    {
+      "market": "BOTH_TEAMS_SCORE",
+      "displayName": "Ambas Marcam",
+      "evaluatedRows": 9660,
+      "selectionAccuracy": 53.7,
+      "brierScore": 0.2505,
+      "coverage": 99.3
+    },
+    {
+      "market": "DOUBLE_CHANCE",
+      "displayName": "Dupla Chance",
+      "evaluatedRows": 14490,
+      "selectionAccuracy": 69.1,
+      "brierScore": 0.2058,
+      "coverage": 99.3
+    },
+    {
+      "market": "CARDS",
+      "displayName": "Cartões",
+      "evaluatedRows": 3171,
+      "selectionAccuracy": 64,
+      "brierScore": 0.2243,
+      "coverage": 21.7
+    },
+    {
+      "market": "CORNERS",
+      "displayName": "Escanteios",
+      "evaluatedRows": 2114,
+      "selectionAccuracy": 57.3,
+      "brierScore": 0.2431,
+      "coverage": 21.7
+    }
+  ],
+  "ignoredPredictions": 3346
+}
