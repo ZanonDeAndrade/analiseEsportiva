@@ -25,7 +25,7 @@ Cobertura funcional:
 npm run build
 ```
 
-Esse comando compila TypeScript do frontend/backend e gera build Vite.
+Esse comando compila TypeScript do `frontend/` e do `backend/`, e gera o build Vite em `frontend/dist`.
 
 ## Validacao de Pipeline
 

@@ -5,9 +5,10 @@
   "type": "module",
   "description": "BetIntel AI — plataforma acadêmica de análise probabilística de jogos de futebol (dados simulados).",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build && npm run backend:build",
-    "preview": "vite preview",
+    "dev": "vite --config frontend/vite.config.ts",
+    "build": "npm run frontend:build && npm run backend:build",
+    "frontend:build": "tsc -b && vite build --config frontend/vite.config.ts",
+    "preview": "vite preview --config frontend/vite.config.ts",
     "backend:build": "tsc -p backend/tsconfig.json",
     "backend:test": "npm run backend:build && node --test \"backend/dist/**/*.test.js\"",
     "backend:sync": "npm run backend:build && node backend/dist/cli/sync-data.js",

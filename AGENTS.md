@@ -6,7 +6,8 @@ Este repositorio implementa o BetIntel AI, uma plataforma academica de analise p
 
 ## Mapa do Projeto
 
-- `src/`: frontend React.
+- `frontend/`: aplicacao React + Vite.
+- `frontend/src/`: componentes, dados mockados, API client e estilos do frontend.
 - `backend/src/`: providers, feature engineering, mercados, treino, avaliacao, backtesting, predicao e servidor.
 - `backend/data/`: cache local sincronizado.
 - `backend/artifacts/`: modelo e relatorios.

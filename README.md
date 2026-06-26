@@ -12,6 +12,19 @@ O sistema nao e casa de apostas, nao recomenda aposta financeira e nao promete l
 - Cache local em `backend/data`
 - Artefatos de modelo em `backend/artifacts`
 
+## Estrutura
+
+- `frontend/`: aplicacao React + Vite.
+- `frontend/src/`: componentes, estilos, dados de fallback e cliente HTTP.
+- `backend/`: API local, providers, pipeline de dados, treino, avaliacao e backtesting.
+- `specs/`: especificacao SDD, requisitos e criterios de aceite.
+- `.claude/` e `.codex/`: contexto, prompts e agentes usados para orientar a IA.
+- `docs/`: system of record tecnico.
+- `evals/`: casos de avaliacao.
+
+A conferencia contra a estrutura minima pedida no enunciado esta em
+[`docs/estrutura-entrega.md`](docs/estrutura-entrega.md).
+
 ## Configuracao
 
 ```bash
@@ -165,9 +178,12 @@ Os testes cobrem labels de gols, 1X2, dupla chance, cartoes/escanteios sem dados
 
 O harness exigido pelo trabalho esta em:
 
+- `frontend/`
+- `backend/`
 - `specs/`
 - `docs/`
 - `.claude/`
+- `.codex/`
 - `evals/`
 - `AGENTS.md`
 - `CLAUDE.md`

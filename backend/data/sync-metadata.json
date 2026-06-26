@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-25T22:34:53.471Z",
+  "generatedAt": "2026-06-25T22:44:53.609Z",
   "sourceProvider": "calendario-oficial",
   "dataDir": "C:\\Users\\Microsoft User\\Desktop\\TrabalhoIa\\AnaliseEsportiva\\backend\\data",
   "fixtures": 25,
@@ -31,7 +31,7 @@
     "Bundesliga 2026: Free plans do not have access to this season, try from 2022 to 2024.",
     "World Cup 2026 2026: Free plans do not have access to this season, try from 2022 to 2024."
   ],
-  "fixturesUpdatedAt": "2026-06-25T22:34:53.471Z",
+  "fixturesUpdatedAt": "2026-06-25T22:44:53.609Z",
   "apiSeasonBlocked": true,
   "apiCheckedAt": "2026-06-25T12:49:17.484Z"
 }

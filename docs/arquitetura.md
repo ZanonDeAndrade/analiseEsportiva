@@ -17,7 +17,7 @@ flowchart LR
 
 ## Frontend
 
-O frontend em `src/` usa React, CSS Modules e dados de backend. Se o backend local nao responder, usa `src/data/matches.ts` como fallback marcado.
+O frontend em `frontend/` usa React, Vite, CSS Modules e dados de backend. Se o backend local nao responder, usa `frontend/src/data/matches.ts` como fallback marcado.
 
 Componentes principais:
 

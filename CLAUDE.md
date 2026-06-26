@@ -9,7 +9,7 @@ Atue como engenheiro full-stack e ML engineer no BetIntel AI. Preserve o escopo 
 - `specs/`: especificacao e criterios de aceite.
 - `docs/`: arquitetura, fontes, modelo e validacao.
 - `backend/src`: pipeline de dados, modelo e API.
-- `src`: frontend React.
+- `frontend/src`: frontend React.
 - `.claude/`: contexto, prompts, agente e skills.
 
 ## Regras

@@ -23,7 +23,7 @@ Fonte secundaria:
 
 ## Arquitetura
 
-Frontend React consome backend local. Backend sincroniza dados, grava cache, treina modelo, avalia, roda backtest e prediz mercados.
+Frontend React em `frontend/` consome backend local. Backend sincroniza dados, grava cache, treina modelo, avalia, roda backtest e prediz mercados.
 
 ## Restricao Etica
 

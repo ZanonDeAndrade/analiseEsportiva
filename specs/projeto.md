@@ -14,7 +14,7 @@ O BetIntel AI organiza jogos futuros e mercados esportivos em uma interface Reac
 
 ## Escopo Incluido
 
-- Frontend React + Vite + TypeScript.
+- Frontend React + Vite + TypeScript em `frontend/`.
 - Backend Node/TypeScript dentro de `backend/`.
 - Ingestao API-Football para Copa do Mundo 2026 quando `API_FOOTBALL_KEY` existe.
 - Fallback historico com CSVs Football-Data.co.uk.

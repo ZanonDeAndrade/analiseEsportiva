@@ -3,6 +3,7 @@ node_modules/
 
 # Saida de build (regenerada por `npm run build`)
 dist/
+frontend/dist/
 backend/dist/
 *.tsbuildinfo
 
