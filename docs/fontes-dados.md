@@ -10,7 +10,7 @@ Fonte primaria para dados atualizados:
 - Fixtures futuras buscadas numa janela rolante: de hoje ate hoje + `BETINTEL_FIXTURE_DAYS` (padrao 7 dias). `BETINTEL_FIXTURE_TO=YYYY-MM-DD` fixa uma data final e tem prioridade quando definido.
 - Resultados historicos para treino: ultimos `BETINTEL_API_HISTORY_YEARS` anos (padrao 5), usando `/fixtures` por liga/temporada e filtrando apenas partidas com placar.
 - Endpoints usados/previstos: `/fixtures`, eventos e estatisticas embutidos quando disponiveis.
-- **Limitacao do plano gratuito:** o plano Free da API-Football so da acesso as temporadas **2022 a 2024**. Temporadas 2025/2026 exigem plano pago — a API responde HTTP 200 com `errors.plan` ("Free plans do not have access to this season"). O backend captura essa mensagem e cai para o calendario oficial / agenda simulada, registrando o motivo no relatorio do `sync`.
+- **Limitacao do plano gratuito:** o plano Free da API-Football pode restringir temporadas recentes. O backend registra o erro no relatorio e nao cria calendario ou fixture simulada como fallback.
 
 Competicoes buscadas por padrao:
 
@@ -25,7 +25,7 @@ Referencia: https://www.api-football.com/news/post/fifa-world-cup-2026-guide-to-
 
 Restricao: a aplicacao nao usa endpoint de previsoes prontas da API como decisao do modelo.
 
-O sync nao para quando uma temporada e bloqueada pelo plano. Ele usa tudo que a API retornar, registra os avisos e complementa com Football-Data.co.uk.
+O sync usa apenas linhas reais aceitas, registra avisos/rejeicoes e complementa o historico com Football-Data.co.uk. Se nenhuma fonte real retornar dados, a transacao e abortada.
 
 ## Football-Data.co.uk
 
@@ -42,17 +42,15 @@ Colunas usadas:
 
 Odds presentes nos CSVs sao removidas pelo provider e nao entram no produto final.
 
-## Calendario oficial da Copa 2026 (fonte real estatica)
+## Calendario estatico legado da Copa 2026
 
-Quando a API-Football nao retorna jogos de 2026 (sem chave ou plano gratuito), o backend usa o **calendario oficial publicado da Copa do Mundo 2026** (`backend/src/providers/worldCup2026.ts`), marcado como `calendario-oficial`. Sao **datas, horarios e confrontos reais** (fase de grupos final + oitavas), com horarios em UTC e exibicao localizada.
+O modulo `backend/src/providers/worldCup2026.ts` permanece como referencia historica do prototipo, mas nao e fonte automatica do runtime PostgreSQL. Qualquer carga comercial precisa passar pelo importador/provider com proveniencia e licenca verificadas.
 
-So aparecem jogos com **confronto definido** (as duas selecoes conhecidas). Partidas do mata-mata cujos times ainda dependem da classificacao dos grupos (`1º Grupo X`, `2º Grupo X`, `Melhor 3º`) sao **filtradas** por `defaultSchedule()` (`isDefinedMatchup`), porque nao faz sentido estimar probabilidade sem o confronto definido. Elas voltam a aparecer quando os times forem conhecidos (com plano pago/API ao vivo).
+Confrontos indefinidos nunca sao convertidos em previsoes. Ausencia de fonte atual produz estado vazio/aviso.
 
-Caracteristicas: dados **reais** porem **estaticos** (nao atualizam placar ao vivo). A janela exibida segue `BETINTEL_FIXTURE_DAYS` (padrao 7 dias) e rola a cada dia. Logica de selecao em `defaultSchedule()` (`backend/src/dataStore.ts`).
+## Demonstracao simulada
 
-## Fallback simulado
-
-Quando nao ha jogos reais da Copa na janela (torneio encerrado/nao iniciado), o backend gera uma agenda simulada das 5 grandes ligas, marcada como `mock-fallback`, para nao deixar a tela vazia. Tambem pode ser ligada junto com a Copa via `BETINTEL_SIMULATE_LEAGUES=true`. Esse fallback serve para demonstracao academica e nao substitui dados reais.
+Dados simulados ficam restritos ao modo visual explicito `?demo=1` do frontend. O sincronizador nao os produz e o importador PostgreSQL rejeita provider contendo `mock`, `fallback` ou `simulad`, salvo `--allow-demo-data` solicitado em ambiente descartavel.
 
 ## Opta / Stats Perform
 

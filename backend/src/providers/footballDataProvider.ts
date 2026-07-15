@@ -9,10 +9,10 @@ export interface FootballDataContext {
 
 export interface FootballDataFetchOptions extends FootballDataContext {
   url: string
-  fetcher?: FetchLike
+  fetcher?: FootballDataFetchLike
 }
 
-type FetchLike = (url: string) => Promise<{ ok: boolean; status: number; text: () => Promise<string> }>
+export type FootballDataFetchLike = (url: string) => Promise<{ ok: boolean; status: number; text: () => Promise<string> }>
 
 const RESULT_COLUMNS = new Set([
   'Div',

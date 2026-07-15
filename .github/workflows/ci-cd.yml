@@ -1,0 +1,230 @@
+name: ci-cd
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      rollback_drill:
+        description: Deploy to staging, exercise rollback, and stop before production
+        type: boolean
+        default: false
+      alert_drill:
+        description: Send a synthetic staging alert and require human acknowledgement
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: betintel_test
+          POSTGRES_USER: betintel
+          POSTGRES_PASSWORD: betintel_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U betintel -d betintel_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7.4.5-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:unit
+      - name: Integration tests with real PostgreSQL and Redis
+        run: npm run test:integration
+        env:
+          TEST_DATABASE_URL: postgresql://betintel:betintel_test@127.0.0.1:5432/betintel_test
+          TEST_REDIS_URL: redis://127.0.0.1:6379
+          BETINTEL_REQUIRE_DB_TESTS: "true"
+      - run: npm run test:evals
+      - name: Upload private backend source maps to Sentry
+        if: github.event_name != 'pull_request'
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_RELEASE: ${{ github.sha }}
+        run: |
+          test -n "$SENTRY_AUTH_TOKEN" && test -n "$SENTRY_ORG" && test -n "$SENTRY_PROJECT"
+          npx sentry-cli sourcemaps inject backend/dist
+          npx sentry-cli sourcemaps upload --org "$SENTRY_ORG" --project "$SENTRY_PROJECT" --release "$SENTRY_RELEASE" backend/dist
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
+  image-scan:
+    needs: quality
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          load: true
+          push: false
+          tags: betintel-ai:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: APP_RELEASE=${{ github.sha }}
+      - name: Report all HIGH and CRITICAL runtime findings
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: betintel-ai:ci
+          format: table
+          exit-code: "0"
+          ignore-unfixed: false
+          severity: HIGH,CRITICAL
+      - name: Gate fixable HIGH and CRITICAL runtime findings
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: betintel-ai:ci
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+  publish-image:
+    if: github.event_name != 'pull_request'
+    needs: image-scan
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.metadata.outputs.image }}
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - id: metadata
+        name: Select immutable image name
+        shell: bash
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          provenance: true
+          sbom: true
+          tags: ${{ steps.metadata.outputs.image }}:${{ github.sha }}
+          cache-from: type=gha
+          build-args: APP_RELEASE=${{ github.sha }}
+
+  deploy-staging:
+    if: github.event_name != 'pull_request'
+    needs: publish-image
+    runs-on: ubuntu-24.04
+    environment: staging
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+    env:
+      DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+      DEPLOY_IMAGE_URL: ${{ needs.publish-image.outputs.image }}@${{ needs.publish-image.outputs.digest }}
+      RENDER_API_TOKEN: ${{ secrets.RENDER_API_TOKEN }}
+      RENDER_SERVICE_IDS: ${{ vars.RENDER_SERVICE_IDS }}
+      SMOKE_BASE_URL: ${{ vars.SMOKE_BASE_URL }}
+      FORCE_ROLLBACK_DRILL: ${{ inputs.rollback_drill && 'true' || 'false' }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Controlled expand-only migrations
+        run: >-
+          docker run --rm
+          -e DATABASE_URL
+          -e NODE_ENV=production
+          -e BETINTEL_ENVIRONMENT=staging
+          "$DEPLOY_IMAGE_URL"
+          node backend/dist/cli/migrate.js
+      - name: Deploy, smoke test, and rollback on failure
+        run: node scripts/render-deploy.mjs
+
+  deploy-production:
+    if: >-
+      github.event_name != 'pull_request'
+      && !(github.event_name == 'workflow_dispatch' && (inputs.rollback_drill || inputs.alert_drill))
+    needs: [publish-image, deploy-staging]
+    runs-on: ubuntu-24.04
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+      DEPLOY_IMAGE_URL: ${{ needs.publish-image.outputs.image }}@${{ needs.publish-image.outputs.digest }}
+      RENDER_API_TOKEN: ${{ secrets.RENDER_API_TOKEN }}
+      RENDER_SERVICE_IDS: ${{ vars.RENDER_SERVICE_IDS }}
+      SMOKE_BASE_URL: ${{ vars.SMOKE_BASE_URL }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Controlled expand-only migrations
+        run: >-
+          docker run --rm
+          -e DATABASE_URL
+          -e NODE_ENV=production
+          -e BETINTEL_ENVIRONMENT=production
+          "$DEPLOY_IMAGE_URL"
+          node backend/dist/cli/migrate.js
+      - name: Deploy, smoke test, and automatic rollback
+        run: node scripts/render-deploy.mjs
+
+  alert-drill-staging:
+    if: github.event_name == 'workflow_dispatch' && inputs.alert_drill
+    needs: deploy-staging
+    runs-on: ubuntu-24.04
+    environment: staging
+    env:
+      BETINTEL_ENVIRONMENT: staging
+      ALERT_DRILL_WEBHOOK_URL: ${{ secrets.ALERT_DRILL_WEBHOOK_URL }}
+      ALERT_DRILL_ACK_URL: ${{ secrets.ALERT_DRILL_ACK_URL }}
+      ALERT_DRILL_BEARER_TOKEN: ${{ secrets.ALERT_DRILL_BEARER_TOKEN }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.18.0
+      - run: npm run alert:drill

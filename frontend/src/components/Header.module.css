@@ -128,6 +128,14 @@
   background: var(--green);
   box-shadow: 0 0 0 3px rgba(47, 189, 107, 0.18);
 }
+.statusDotWarn {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(255, 106, 26, 0.18);
+}
+.statusDotError {
+  background: #ec6b67;
+  box-shadow: 0 0 0 3px rgba(236, 107, 103, 0.18);
+}
 
 .disclaimer {
   font-size: 10.5px;
@@ -158,4 +166,21 @@
   .aiBtn {
     padding: 8px 10px;
   }
+}
+.accountBtn,
+.logoutBtn {
+  border: 1px solid var(--border-mid);
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: var(--bg-input);
+  color: var(--text-2);
+  cursor: pointer;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logoutBtn {
+  background: transparent;
 }

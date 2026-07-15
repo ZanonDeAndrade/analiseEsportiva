@@ -50,7 +50,7 @@ const TEAM_ALIASES: Record<string, string> = {
   jordania: 'jordan',
 }
 
-function normalize(name: string) {
+export function normalizeTeamAlias(name: string) {
   return name
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
@@ -61,6 +61,6 @@ function normalize(name: string) {
 
 /** Chave canonica de um time (com aliasing pt->en). */
 export function teamKey(name: string): string {
-  const normalized = normalize(name)
+  const normalized = normalizeTeamAlias(name)
   return TEAM_ALIASES[normalized] ?? normalized
 }

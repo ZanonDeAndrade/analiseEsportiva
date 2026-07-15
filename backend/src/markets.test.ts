@@ -3,7 +3,7 @@ import test from 'node:test'
 import { buildFeatureTable } from './featureEngineering.js'
 import { deriveMarketLabels } from './markets.js'
 import { predictMarkets } from './prediction.js'
-import { isUpcomingFixture } from './dataStore.js'
+import { isUpcomingFixture } from './fixtureTime.js'
 import {
   buildApiFootballHistoricalTargets,
   historyDateRange,

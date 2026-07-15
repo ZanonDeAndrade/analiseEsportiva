@@ -8,12 +8,13 @@ backend/dist/
 *.tsbuildinfo
 
 # Segredos e ambiente local (NUNCA versionar a chave da API)
-.env
-.env.local
-.env.*.local
+.env*
+!.env.example
 
 # Logs e arquivos temporarios
 *.log
+*.dump
+*.backup
 trabalho2.pdf
 trabalho2.txt
 

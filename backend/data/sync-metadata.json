@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-06-25T22:44:53.609Z",
-  "sourceProvider": "calendario-oficial",
+  "generatedAt": "2026-07-15T17:37:38.471Z",
+  "sourceProvider": "calendario-oficial, mock-fallback",
   "dataDir": "C:\\Users\\Microsoft User\\Desktop\\TrabalhoIa\\AnaliseEsportiva\\backend\\data",
   "fixtures": 25,
   "resultRows": 6475,
   "usedApiFootball": true,
   "usedFootballData": true,
-  "simulated": false,
+  "simulated": true,
   "warnings": [
     "World Cup 2026 2026: Free plans do not have access to this season, try from 2022 to 2024.",
     "Brasileirao Serie A 2026: Free plans do not have access to this season, try from 2022 to 2024.",
@@ -31,7 +31,7 @@
     "Bundesliga 2026: Free plans do not have access to this season, try from 2022 to 2024.",
     "World Cup 2026 2026: Free plans do not have access to this season, try from 2022 to 2024."
   ],
-  "fixturesUpdatedAt": "2026-06-25T22:44:53.609Z",
+  "fixturesUpdatedAt": "2026-07-15T17:37:38.471Z",
   "apiSeasonBlocked": true,
-  "apiCheckedAt": "2026-06-25T12:49:17.484Z"
+  "apiCheckedAt": "2026-07-15T14:48:48.227Z"
 }

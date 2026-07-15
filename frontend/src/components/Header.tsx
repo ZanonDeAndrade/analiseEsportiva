@@ -7,9 +7,38 @@ interface HeaderProps {
   aiOn: boolean
   onToggleAI: () => void
   onOpenMenu: () => void
+  dataStatus: 'real' | 'demo' | 'warning' | 'offline'
+  userName?: string
+  onOpenAccount: () => void
+  onLogout: () => void
 }
 
-export default function Header({ query, onSearch, aiOn, onToggleAI, onOpenMenu }: HeaderProps) {
+export default function Header({
+  query,
+  onSearch,
+  aiOn,
+  onToggleAI,
+  onOpenMenu,
+  dataStatus,
+  userName,
+  onOpenAccount,
+  onLogout,
+}: HeaderProps) {
+  const statusText =
+    dataStatus === 'offline'
+      ? 'Backend offline'
+      : dataStatus === 'demo'
+        ? 'Modo demonstração'
+      : dataStatus === 'warning'
+        ? 'Dados reais com aviso'
+        : 'Dados reais'
+  const dotClass =
+    dataStatus === 'offline'
+      ? styles.statusDotError
+      : dataStatus === 'warning' || dataStatus === 'demo'
+        ? styles.statusDotWarn
+        : ''
+
   return (
     <header className={styles.header}>
       <button
@@ -54,9 +83,16 @@ export default function Header({ query, onSearch, aiOn, onToggleAI, onOpenMenu }
       </button>
 
       <div id="hdr-extra" className={styles.status}>
-        <span className={styles.statusDot} />
-        Dados simulados
+        <span className={`${styles.statusDot} ${dotClass}`} />
+        {statusText}
       </div>
+
+      <button type="button" className={styles.accountBtn} onClick={onOpenAccount}>
+        {userName ?? 'Conta'}
+      </button>
+      <button type="button" className={styles.logoutBtn} onClick={onLogout}>
+        Sair
+      </button>
 
       <div className={styles.disclaimer}>Probabilidades estimadas, não recomendações financeiras.</div>
     </header>

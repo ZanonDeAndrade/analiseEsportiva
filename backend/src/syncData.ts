@@ -1,31 +1,36 @@
-import { dataDir, fixtureWindow, loadLocalEnv } from './config.js'
-import {
-  combinedCsvPath,
-  defaultSchedule,
-  readTrainingRows,
-  syncMetadataPath,
-  writeCsvRows,
-  writeFixturesCache,
-} from './dataStore.js'
-import { writeJson } from './io.js'
+import { createHash } from 'node:crypto'
+import { fixtureWindow } from './config.js'
+import type { SportsRepository, SystemStateRepository } from './application/ports/persistence.js'
+import { prepareSportsImportBatch, type ImportIssue } from './import/localStateImporter.js'
 import {
   defaultApiFootballFixtureTargets,
   fetchApiFootballHistoricalResults,
   fetchApiFootballTargetFixtures,
   historyDateRange,
 } from './providers/apiFootballProvider.js'
+import type { ApiFootballFetchLike } from './providers/apiFootballProvider.js'
 import { defaultFootballDataSources, fetchFootballDataCsv } from './providers/footballDataProvider.js'
+import type { FootballDataFetchLike } from './providers/footballDataProvider.js'
 import type { CsvRow, FixtureRecord, SyncReport } from './schemas.js'
 
 export interface SyncDataOptions {
   includeFootballData?: boolean
   includeApiHistory?: boolean
   apiHistoryYears?: number
+  apiFootballFetcher?: ApiFootballFetchLike
+  footballDataFetcher?: FootballDataFetchLike
+  beforePersist?: () => Promise<void>
 }
 
-export async function syncData(options: SyncDataOptions = {}): Promise<SyncReport> {
-  loadLocalEnv()
+export interface SyncDataDependencies {
+  sports: SportsRepository
+  systemState: SystemStateRepository
+}
 
+export async function syncData(
+  dependencies: SyncDataDependencies,
+  options: SyncDataOptions = {},
+): Promise<SyncReport> {
   const includeFootballData = options.includeFootballData ?? true
   const includeApiHistory = options.includeApiHistory ?? process.env.BETINTEL_SYNC_API_HISTORY !== 'false'
   const apiHistoryYears = historyYears(options.apiHistoryYears)
@@ -34,14 +39,17 @@ export async function syncData(options: SyncDataOptions = {}): Promise<SyncRepor
   const warnings: string[] = []
   let usedApiFootball = false
   let usedFootballData = false
-
   const apiKey = process.env.API_FOOTBALL_KEY
-
-  const { from, to, days } = fixtureWindow()
+  const { from, to } = fixtureWindow()
 
   if (apiKey) {
     try {
-      const result = await fetchApiFootballTargetFixtures({ apiKey, from, to })
+      const result = await fetchApiFootballTargetFixtures({
+        apiKey,
+        from,
+        to,
+        fetcher: options.apiFootballFetcher,
+      })
       rows.push(...result.rows)
       fixtures = result.fixtures
       warnings.push(...result.warnings)
@@ -52,16 +60,18 @@ export async function syncData(options: SyncDataOptions = {}): Promise<SyncRepor
 
     if (includeApiHistory) {
       const range = historyDateRange(apiHistoryYears)
-
       try {
-        const result = await fetchApiFootballHistoricalResults({ apiKey, years: apiHistoryYears })
+        const result = await fetchApiFootballHistoricalResults({
+          apiKey,
+          years: apiHistoryYears,
+          fetcher: options.apiFootballFetcher,
+        })
         rows.push(...result.rows)
         warnings.push(...result.warnings)
         usedApiFootball = usedApiFootball || result.rows.length > 0
-
         if (result.rows.length === 0) {
           warnings.push(
-            `API-Football nao retornou resultados historicos para treino no periodo ${range.from} a ${range.to}.`,
+            `API-Football nao retornou historico no periodo ${range.from} a ${range.to}.`,
           )
         }
       } catch (error) {
@@ -69,9 +79,8 @@ export async function syncData(options: SyncDataOptions = {}): Promise<SyncRepor
       }
     }
   } else {
-    const range = historyDateRange(apiHistoryYears)
     warnings.push(
-      `API_FOOTBALL_KEY ausente; usando agenda simulada dos proximos ${days} dias (${from} a ${to}) e sem historico API-Football dos ultimos ${apiHistoryYears} anos (${range.from} a ${range.to}). Configure a chave para jogos reais. Competicoes alvo: ${defaultApiFootballFixtureTargets.map((target) => target.name).join(', ')}.`,
+      `API_FOOTBALL_KEY ausente; fixtures futuras nao serao inventadas. Competicoes alvo: ${defaultApiFootballFixtureTargets.map((target) => target.name).join(', ')}.`,
     )
   }
 
@@ -83,6 +92,7 @@ export async function syncData(options: SyncDataOptions = {}): Promise<SyncRepor
           league: source.league,
           season: source.season,
           sourceUrl: source.url,
+          fetcher: options.footballDataFetcher,
         })
         rows.push(...sourceRows)
         usedFootballData = true
@@ -92,58 +102,52 @@ export async function syncData(options: SyncDataOptions = {}): Promise<SyncRepor
     }
   }
 
-  if (fixtures.length === 0) fixtures = defaultSchedule()
-
-  // So injeta amostra mock de selecoes se NAO houver nenhum dado real de Copa do
-  // Mundo (qualquer ano). Quando ha historico real (ex.: Copa 2022), as linhas
-  // mock criariam um segmento "World Cup 2026::2026" raso que sombrearia o
-  // segmento real "World Cup" na predicao — deixando todos os jogos iguais.
-  const hasWorldCupData = rows.some(
-    (row) => row.League === 'World Cup' || (row.Competition ?? '').includes('World Cup'),
-  )
-
-  if (!hasWorldCupData) {
-    const updatedAt = new Date().toISOString()
-    rows.push(
-      ...(await readTrainingRows('backend/src/fixtures/sample-results.csv'))
-        .filter((row) => row.Competition === 'World Cup 2026')
-        .map((row) => ({
-          ...row,
-          SourceProvider: 'mock-fallback',
-          UpdatedAt: updatedAt,
-        })),
+  if (rows.length === 0 && fixtures.length === 0) {
+    throw new Error(
+      `Nenhuma fonte real retornou dados. A sincronizacao foi abortada sem fallback simulado. ${warnings.join(' ')}`,
     )
   }
 
-  if (rows.length === 0) {
-    const updatedAt = new Date().toISOString()
-    rows.push(
-      ...(await readTrainingRows('backend/src/fixtures/sample-results.csv')).map((row) => ({
-        ...row,
-        SourceProvider: 'mock-fallback',
-        UpdatedAt: updatedAt,
-      })),
+  const contentSha256 = createHash('sha256')
+    .update(JSON.stringify({ rows, fixtures }))
+    .digest('hex')
+  const prepared = prepareSportsImportBatch({
+    rows,
+    fixtures,
+    datasetKey: 'provider-sync',
+    contentSha256,
+    allowDemoData: false,
+  })
+
+  if (prepared.batch.records.length === 0) {
+    throw new Error(
+      `Todas as linhas recebidas foram rejeitadas: ${prepared.issues.map((item) => item.message).join(' ')}`,
     )
   }
 
-  const finalRows = dedupeCsvRows(rows)
+  await options.beforePersist?.()
 
-  await writeCsvRows(combinedCsvPath(), finalRows)
-  await writeFixturesCache(fixtures)
-
+  const imported = await dependencies.sports.importBatch(prepared.batch)
+  const generatedAt = new Date().toISOString()
   const report: SyncReport = {
-    generatedAt: new Date().toISOString(),
-    sourceProvider: sourceProvider(finalRows, fixtures),
-    dataDir: dataDir(),
+    generatedAt,
+    sourceProvider: sourceProvider(rows, fixtures),
+    storage: 'postgresql',
+    datasetVersionId: imported.datasetVersionId,
     fixtures: fixtures.length,
-    resultRows: finalRows.length,
+    resultRows: rows.length,
+    acceptedRows: imported.accepted,
+    rejectedRows: prepared.batch.rejectedRows,
+    duplicateRows: imported.duplicates,
+    correctedResults: imported.correctedResults,
     usedApiFootball,
     usedFootballData,
-    simulated: fixtures.some((fixture) => fixture.isFallback) || finalRows.some((row) => row.SourceProvider === 'mock-fallback'),
+    simulated: false,
+    importIssues: prepared.issues,
     warnings,
   }
 
-  await writeJson(syncMetadataPath(), report)
+  await dependencies.systemState.set('sports_sync', report as unknown as Record<string, unknown>)
   return report
 }
 
@@ -152,8 +156,7 @@ function sourceProvider(rows: CsvRow[], fixtures: FixtureRecord[]) {
     ...rows.map((row) => row.SourceProvider).filter((value): value is string => Boolean(value)),
     ...fixtures.map((fixture) => fixture.sourceProvider),
   ])
-
-  return [...providers].join(', ') || 'local-cache'
+  return [...providers].join(', ') || 'unknown'
 }
 
 function message(error: unknown) {
@@ -166,13 +169,4 @@ function historyYears(value: number | undefined) {
   return Math.min(10, Math.floor(raw))
 }
 
-function dedupeCsvRows(rows: CsvRow[]) {
-  const map = new Map<string, CsvRow>()
-
-  for (const row of rows) {
-    const key = `${row.Date ?? ''}-${row.HomeTeam ?? ''}-${row.AwayTeam ?? ''}-${row.Competition ?? ''}`
-    map.set(key, row)
-  }
-
-  return [...map.values()]
-}
+export type { ImportIssue }

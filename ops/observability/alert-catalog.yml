@@ -1,0 +1,30 @@
+alerts:
+  external_unavailability:
+    source: prometheus
+    receiver: pager-primary
+    severity: critical
+  queue_stalled:
+    source: prometheus
+    receiver: pager-primary
+    severity: critical
+  elevated_errors_or_p99:
+    source: prometheus
+    receiver: engineering
+    severity: critical
+  database_or_redis_unavailable:
+    source: prometheus
+    receiver: pager-primary
+    severity: critical
+  sports_data_stale_or_quota:
+    source: prometheus
+    receiver: data-operations
+    severity: warning
+  backup_failure:
+    source: render-managed-postgresql
+    receiver: pager-primary
+    severity: critical
+  billing_or_webhook_failure:
+    source: prometheus
+    receiver: finance-operations
+    severity: critical
+

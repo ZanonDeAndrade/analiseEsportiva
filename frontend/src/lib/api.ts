@@ -1,4 +1,4 @@
-import type { Confidence, LeagueId, Match, Result } from '../types'
+import type { Confidence, LeagueId, Match } from '../types'
 
 const BACKEND_URL =
   (import.meta.env.VITE_BETINTEL_BACKEND_URL as string | undefined) ?? 'http://127.0.0.1:3333'
@@ -32,23 +32,32 @@ interface BackendPrediction {
   ignoredMarkets: Match['ignoredMarkets']
 }
 
-export async function loadBackendMatches(forceRefresh = false): Promise<Match[]> {
+export type AccessTokenProvider = () => Promise<string>
+
+export async function loadBackendMatches(
+  getAccessToken: AccessTokenProvider,
+  _forceRefresh = false,
+): Promise<Match[]> {
   const fixturePayload = await fetchJson<{ fixtures: BackendFixture[] }>(
-    forceRefresh ? '/fixtures?refresh=true' : '/fixtures',
+    '/fixtures',
+    getAccessToken,
   )
   const fixtures = fixturePayload.fixtures
 
   return Promise.all(
     fixtures.map(async (fixture) => {
-      const prediction = await predictFixture(fixture)
+      const prediction = await predictFixture(fixture, getAccessToken)
       return mapFixtureToMatch(fixture, prediction)
     }),
   )
 }
 
-async function predictFixture(fixture: BackendFixture): Promise<BackendPrediction | null> {
+async function predictFixture(
+  fixture: BackendFixture,
+  getAccessToken: AccessTokenProvider,
+): Promise<BackendPrediction | null> {
   try {
-    return await fetchJson<BackendPrediction>('/predict', {
+    return await fetchJson<BackendPrediction>('/predictions', getAccessToken, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -66,22 +75,42 @@ async function predictFixture(fixture: BackendFixture): Promise<BackendPredictio
   }
 }
 
-async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${BACKEND_URL}${path}`, init)
+export async function authenticatedFetchJson<T>(
+  path: string,
+  getAccessToken: AccessTokenProvider,
+  init?: RequestInit,
+): Promise<T> {
+  let response: Response
+  const token = await getAccessToken()
 
-  if (!response.ok) {
-    throw new Error(`Backend retornou HTTP ${response.status}`)
+  try {
+    response = await fetch(`${BACKEND_URL}${path.startsWith('/v1/') ? path : `/v1${path}`}`, {
+      ...init,
+      headers: {
+        ...Object.fromEntries(new Headers(init?.headers).entries()),
+        authorization: `Bearer ${token}`,
+      },
+    })
+  } catch {
+    throw new Error(`Backend indisponivel em ${BACKEND_URL}`)
   }
 
-  return (await response.json()) as T
+  if (!response.ok) {
+    const problem = (await response.json().catch(() => null)) as { detail?: string } | null
+    throw new Error(problem?.detail ?? `Backend retornou HTTP ${response.status}`)
+  }
+
+  return response.status === 204 ? (undefined as T) : ((await response.json()) as T)
 }
+
+const fetchJson = authenticatedFetchJson
 
 function mapFixtureToMatch(fixture: BackendFixture, prediction: BackendPrediction | null): Match {
   const probabilities = probabilitiesFromPrediction(prediction)
   const confidence = normalizeConfidence(prediction?.confidence)
   // A fonte exibida e o status de fallback refletem a FIXTURE (de onde vem o
   // jogo/data), nao o modelo de predicao — que pode ter sido treinado em parte
-  // com dados simulados sem que o jogo em si seja simulado.
+  // com dados de demonstracao sem que o jogo em si seja simulado.
   const sourceProvider = fixture.sourceProvider
   const updatedAt = prediction?.updatedAt ?? fixture.updatedAt
 
@@ -97,18 +126,18 @@ function mapFixtureToMatch(fixture: BackendFixture, prediction: BackendPredictio
     period: periodFromDate(fixture.isoDate),
     homeTeam: fixture.homeTeam,
     awayTeam: fixture.awayTeam,
-    homeForm: formFor(fixture.homeTeam),
-    awayForm: formFor(fixture.awayTeam),
+    homeForm: [],
+    awayForm: [],
     probabilities,
     stats: {
-      homeAvgGoalsFor: estimateAverage(probabilities.homeWin, probabilities.over25),
-      awayAvgGoalsFor: estimateAverage(probabilities.awayWin, probabilities.over25),
-      homeAvgGoalsAgainst: estimateAgainst(probabilities.awayWin),
-      awayAvgGoalsAgainst: estimateAgainst(probabilities.homeWin),
+      homeAvgGoalsFor: undefined,
+      awayAvgGoalsFor: undefined,
+      homeAvgGoalsAgainst: undefined,
+      awayAvgGoalsAgainst: undefined,
       over15Rate: probabilities.over15,
       over25Rate: probabilities.over25,
       bttsRate: probabilities.bothTeamsScore,
-      cleanSheets: confidence === 'Alta' ? 2 : 1,
+      cleanSheets: undefined,
     },
     lastMatchesHome: [],
     lastMatchesAway: [],
@@ -118,33 +147,25 @@ function mapFixtureToMatch(fixture: BackendFixture, prediction: BackendPredictio
     updatedAt,
     sampleSize: prediction?.sampleSize,
     ethicalNotice: prediction?.ethicalNotice,
-    availableMarkets: prediction?.availableMarkets,
+    // [] marca a origem backend e impede a derivacao visual do modo demo
+    // quando a predicao estiver indisponivel.
+    availableMarkets: prediction?.availableMarkets ?? [],
     ignoredMarkets: prediction?.ignoredMarkets,
     isFallback: fixture.isFallback || fixture.sourceProvider.includes('mock'),
   }
 }
 
 function probabilitiesFromPrediction(prediction: BackendPrediction | null): Match['probabilities'] {
-  const fallback = {
-    homeWin: 38,
-    draw: 30,
-    awayWin: 32,
-    over15: 70,
-    over25: 48,
-    bothTeamsScore: 52,
-    doubleChance: 68,
-  }
-
-  if (!prediction) return fallback
+  if (!prediction) return {}
 
   return {
-    homeWin: marketProbability(prediction, '1X2', 'home_win', fallback.homeWin),
-    draw: marketProbability(prediction, '1X2', 'draw', fallback.draw),
-    awayWin: marketProbability(prediction, '1X2', 'away_win', fallback.awayWin),
-    over15: marketProbability(prediction, 'OVER_1_5_GOALS', 'over_1_5', fallback.over15),
-    over25: marketProbability(prediction, 'OVER_2_5_GOALS', 'over_2_5', fallback.over25),
-    bothTeamsScore: marketProbability(prediction, 'BOTH_TEAMS_SCORE', 'btts_yes', fallback.bothTeamsScore),
-    doubleChance: marketProbability(prediction, 'DOUBLE_CHANCE', '1x', fallback.doubleChance),
+    homeWin: marketProbability(prediction, '1X2', 'home_win'),
+    draw: marketProbability(prediction, '1X2', 'draw'),
+    awayWin: marketProbability(prediction, '1X2', 'away_win'),
+    over15: marketProbability(prediction, 'OVER_1_5_GOALS', 'over_1_5'),
+    over25: marketProbability(prediction, 'OVER_2_5_GOALS', 'over_2_5'),
+    bothTeamsScore: marketProbability(prediction, 'BOTH_TEAMS_SCORE', 'btts_yes'),
+    doubleChance: marketProbability(prediction, 'DOUBLE_CHANCE', '1x'),
   }
 }
 
@@ -152,13 +173,10 @@ function marketProbability(
   prediction: BackendPrediction,
   market: string,
   selectionKey: string,
-  fallback: number,
 ) {
-  return (
-    prediction.availableMarkets
-      ?.find((item) => item.market === market)
-      ?.selections.find((selection) => selection.key === selectionKey)?.probability ?? fallback
-  )
+  return prediction.availableMarkets
+    ?.find((item) => item.market === market)
+    ?.selections.find((selection) => selection.key === selectionKey)?.probability
 }
 
 function toLeagueId(raw: string, competition: string): LeagueId {
@@ -176,11 +194,6 @@ function normalizeConfidence(value: string | undefined): Confidence {
   return 'Média'
 }
 
-function formFor(seed: string): Result[] {
-  const options: Result[] = ['V', 'E', 'D']
-  return Array.from({ length: 5 }, (_, index) => options[(hash(seed) + index) % options.length])
-}
-
 function periodFromDate(isoDate: string): Match['period'] {
   const now = new Date()
   const date = new Date(isoDate)
@@ -196,27 +209,11 @@ function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate())
 }
 
-function estimateAverage(resultProbability: number, over25: number) {
-  return Math.round((0.8 + resultProbability / 70 + over25 / 100) * 10) / 10
-}
-
-function estimateAgainst(opponentWinProbability: number) {
-  return Math.round((0.8 + opponentWinProbability / 80) * 10) / 10
-}
-
 function summaryFor(fixture: BackendFixture, prediction: BackendPrediction | null) {
   if (!prediction) {
-    return `Analise educacional para ${fixture.homeTeam} x ${fixture.awayTeam} usando dados locais. Backend de predicao indisponivel no momento.`
+    return `Fixture persistida para ${fixture.homeTeam} x ${fixture.awayTeam}. Nenhuma predicao pronta esta disponivel; nenhuma probabilidade foi inventada.`
   }
 
   const ignored = prediction.ignoredMarkets?.length ?? 0
   return `Estimativa educacional para ${fixture.homeTeam} x ${fixture.awayTeam} em ${fixture.competition}. O modelo usa frequencias historicas segmentadas, com ${prediction.availableMarkets?.length ?? 0} mercados disponiveis e ${ignored} mercados ignorados por dados insuficientes.`
-}
-
-function hash(value: string) {
-  let result = 0
-  for (let index = 0; index < value.length; index += 1) {
-    result = (result * 31 + value.charCodeAt(index)) >>> 0
-  }
-  return result
 }

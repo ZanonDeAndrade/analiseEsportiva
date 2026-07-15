@@ -59,23 +59,23 @@ export function derivedProbs(m: Match): Record<string, number | undefined> {
   if (backendValues) return backendValues
 
   const p = m.probabilities
-  const o35 = clamp(p.over25 * 0.62)
+  const o35 = p.over25 === undefined ? undefined : clamp(p.over25 * 0.62)
   const off = (n: number) => (hash(m.id + n) % 9) - 4
   return {
     casa: p.homeWin,
     empate: p.draw,
     fora: p.awayWin,
     over15: p.over15,
-    under15: 100 - p.over15,
+    under15: complement(p.over15),
     over25: p.over25,
-    under25: 100 - p.over25,
+    under25: complement(p.over25),
     over35: o35,
-    under35: 100 - o35,
+    under35: complement(o35),
     ambasSim: p.bothTeamsScore,
-    ambasNao: 100 - p.bothTeamsScore,
-    dc1x: Math.min(96, p.homeWin + p.draw),
-    dc12: Math.min(97, p.homeWin + p.awayWin),
-    dcx2: Math.min(96, p.draw + p.awayWin),
+    ambasNao: complement(p.bothTeamsScore),
+    dc1x: sumCapped(96, p.homeWin, p.draw),
+    dc12: sumCapped(97, p.homeWin, p.awayWin),
+    dcx2: sumCapped(96, p.draw, p.awayWin),
     c35: clamp(71 + off(1)),
     c45: clamp(54 + off(2)),
     c55: clamp(37 + off(3)),
@@ -83,6 +83,14 @@ export function derivedProbs(m: Match): Record<string, number | undefined> {
     e95: clamp(57 + off(5)),
     e105: clamp(41 + off(6)),
   }
+}
+
+function complement(value: number | undefined) {
+  return value === undefined ? undefined : 100 - value
+}
+
+function sumCapped(cap: number, left: number | undefined, right: number | undefined) {
+  return left === undefined || right === undefined ? undefined : Math.min(cap, left + right)
 }
 
 function derivedBackendProbs(m: Match): Record<string, number | undefined> | null {

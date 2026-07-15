@@ -26,7 +26,7 @@ Conferencia do projeto contra o enunciado do Trabalho 2 de Inteligencia Artifici
 O PDF mostra uma estrutura minima com uma pasta `src/`. Este projeto usa uma
 estrutura equivalente e mais explicita para aplicacao full-stack:
 
-- `frontend/src/`: codigo React, componentes, estilos, dados de fallback e cliente HTTP.
+- `frontend/src/`: codigo React, componentes, estilos, metadados de ligas, dados de demonstracao opcionais e cliente HTTP.
 - `backend/src/`: providers, engenharia de features, mercados, treino, avaliacao, backtesting, predicao, servidor e testes.
 
 Essa separacao evita deixar o frontend solto na raiz e preserva a reproducibilidade pelos comandos do `README.md`.

@@ -1,0 +1,1 @@
+ALTER TABLE "model"."evaluations" ADD COLUMN "payload" jsonb NOT NULL;

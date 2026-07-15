@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { LeagueId, Period } from '../types'
-import { LEAGUES } from '../data/matches'
+import { LEAGUES } from '../data/leagues'
 import { MARKETS } from '../lib/markets'
 import { dotColor } from '../lib/theme'
 import NavButton from './NavButton'

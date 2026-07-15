@@ -3,7 +3,7 @@
    labels. Ported from the original design logic. */
 
 import type { Match } from '../types'
-import { clamp } from './markets'
+import { derivedProbs } from './markets'
 import { CONFIDENCE_TEXT } from './theme'
 
 export interface StatItem {
@@ -32,17 +32,17 @@ export interface Analysis {
 export function buildAnalysis(m: Match): Analysis {
   const p = m.probabilities
   const s = m.stats
-
-  const dc = Math.min(95, p.homeWin + p.draw)
-  const u35 = 100 - clamp(p.over25 * 0.62)
+  const probabilities = derivedProbs(m)
 
   const evidenceMarkets: EvidenceMarket[] = [
-    { label: 'Over 1.5 gols', value: p.over15 },
-    { label: 'Ambas Marcam', value: p.bothTeamsScore },
-    { label: 'Dupla Chance Casa/Empate', value: dc },
-    { label: 'Under 3.5 gols', value: u35 },
-    { label: 'Over 2.5 gols', value: p.over25 },
+    ['Over 1.5 gols', probabilities.over15],
+    ['Ambas Marcam', probabilities.ambasSim],
+    ['Dupla Chance Casa/Empate', probabilities.dc1x],
+    ['Under 3.5 gols', probabilities.under35],
+    ['Over 2.5 gols', probabilities.over25],
   ]
+    .filter((item): item is [string, number] => item[1] !== undefined)
+    .map(([label, value]) => ({ label, value, valueText: '', strong: false }))
     .sort((a, b) => b.value - a.value)
     .slice(0, 3)
     .map((bm) => ({
@@ -53,12 +53,12 @@ export function buildAnalysis(m: Match): Analysis {
     }))
 
   const stats: StatItem[] = [
-    { label: 'Média de gols · mandante', value: s.homeAvgGoalsFor.toFixed(1), strong: s.homeAvgGoalsFor >= 2 },
-    { label: 'Média de gols · visitante', value: s.awayAvgGoalsFor.toFixed(1), strong: s.awayAvgGoalsFor >= 2 },
-    { label: 'Over 1.5 · últimos jogos', value: p.over15 + '%', strong: p.over15 >= 75 },
-    { label: 'Over 2.5 · últimos jogos', value: p.over25 + '%', strong: p.over25 >= 60 },
-    { label: 'Ambas Marcam · histórico', value: p.bothTeamsScore + '%', strong: p.bothTeamsScore >= 60 },
-    { label: 'Clean sheets · últimos 5', value: s.cleanSheets + '/5', strong: false },
+    { label: 'Média de gols · mandante', value: decimal(s.homeAvgGoalsFor), strong: (s.homeAvgGoalsFor ?? 0) >= 2 },
+    { label: 'Média de gols · visitante', value: decimal(s.awayAvgGoalsFor), strong: (s.awayAvgGoalsFor ?? 0) >= 2 },
+    { label: 'Over 1.5 · últimos jogos', value: percent(p.over15), strong: (p.over15 ?? 0) >= 75 },
+    { label: 'Over 2.5 · últimos jogos', value: percent(p.over25), strong: (p.over25 ?? 0) >= 60 },
+    { label: 'Ambas Marcam · histórico', value: percent(p.bothTeamsScore), strong: (p.bothTeamsScore ?? 0) >= 60 },
+    { label: 'Clean sheets · últimos 5', value: s.cleanSheets === undefined ? 'n/d' : `${s.cleanSheets}/5`, strong: false },
   ]
 
   return {
@@ -69,4 +69,12 @@ export function buildAnalysis(m: Match): Analysis {
     stats,
     evidenceMarkets,
   }
+}
+
+function decimal(value: number | undefined) {
+  return value === undefined ? 'n/d' : value.toFixed(1)
+}
+
+function percent(value: number | undefined) {
+  return value === undefined ? 'n/d' : `${value}%`
 }

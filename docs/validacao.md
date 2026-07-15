@@ -18,6 +18,22 @@ Cobertura funcional:
 - Resposta `dados_insuficientes`.
 - Provider API-Football com payload mockado.
 - Provider Football-Data com CSV mockado.
+- Parsing ISO e `DD/MM/AAAA`.
+- Schemas HTTP invalidos e contrato `application/problem+json`.
+- Autenticacao, RBAC, rate limit, payload excessivo, content-type e timeout.
+- Erros internos sem stack/mensagem sensivel e contrato OpenAPI.
+- Feature flag das rotas antigas e jobs administrativos sem trabalho pesado no handler.
+
+Testes PostgreSQL reais:
+
+```bash
+TEST_DATABASE_URL=postgresql://... TEST_REDIS_URL=redis://... BETINTEL_REQUIRE_DB_TESTS=true npm run db:test
+```
+
+Essa suíte cria um database descartável e usa Redis real para validar migrations,
+constraints, concorrência, rollback, deduplicação, dry-run, auditoria append-only,
+duas instâncias, rate limit distribuído, outbox, BullMQ, retries, DLQ, cotas,
+circuit breaker, locks e recuperação após reinício.
 
 ## Validacao de Build
 
@@ -38,10 +54,10 @@ npm run backend:backtest
 
 Resultados esperados:
 
-- Sync cria cache local.
-- Train cria `backend/artifacts/model.json`.
-- Evaluate cria `backend/artifacts/evaluation.json`.
-- Backtest cria `backend/artifacts/backtest.json`.
+- Sync persiste fixtures/resultados compartilhados no PostgreSQL.
+- Train cria `model.model_versions` e `model.model_segments`.
+- Evaluate e backtest criam `model.evaluations`.
+- Nenhum comando grava estado persistente em `backend/data` ou `backend/artifacts`.
 
 ## Analise Critica
 

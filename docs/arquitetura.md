@@ -6,18 +6,18 @@
 flowchart LR
   A["API-Football league=1 season=2026"] --> B["backend/src/providers"]
   C["Football-Data CSVs"] --> B
-  B --> D["backend/data cache"]
+  B --> D[("PostgreSQL sports")]
   D --> E["featureEngineering"]
   E --> F["training"]
-  F --> G["backend/artifacts/model.json"]
+  F --> G[("PostgreSQL model")]
   G --> H["prediction"]
-  H --> I["server endpoints"]
+  H --> I["Fastify API /v1"]
   I --> J["React frontend"]
 ```
 
 ## Frontend
 
-O frontend em `frontend/` usa React, Vite, CSS Modules e dados de backend. Se o backend local nao responder, usa `frontend/src/data/matches.ts` como fallback marcado.
+O frontend em `frontend/` usa React, Vite, CSS Modules e dados do backend. Se o backend local nao responder, mostra erro/estado vazio e nao troca para partidas mockadas. `frontend/src/data/matches.ts` fica apenas como base de demonstracao/teste, fora do fluxo principal.
 
 Componentes principais:
 
@@ -38,21 +38,27 @@ O backend fica em `backend/src`.
 - `evaluation.ts`: accuracy, brier score e cobertura.
 - `backtesting.ts`: backtesting temporal.
 - `prediction.ts`: resposta com mercados disponiveis e ignorados.
-- `server.ts`: endpoints HTTP.
+- `httpApp.ts`: composition root Fastify, OpenAPI e plugins transversais.
+- `interfaces/http/fastify/`: schemas TypeBox, hooks de seguranca e rotas `/v1`.
+- `server.ts`: composition root do processo HTTP.
+- `application/ports/persistence.ts`: contratos sem dependencia de banco.
+- `infrastructure/database/*`: Drizzle, pool e adapters PostgreSQL.
 - `cli/*`: comandos de sync, treino, avaliacao e backtest.
 
-## Cache
+## Persistencia
 
-`backend:sync` grava:
+`backend:sync`, treino, avaliacao e backtest persistem no PostgreSQL. Os schemas sao:
 
-- `backend/data/combined-results.csv`
-- `backend/data/fixtures.json`
-- `backend/data/sync-metadata.json`
+- `sports`: dados esportivos compartilhados, sem tenant.
+- `model`: datasets, modelos, segmentos, predicoes e avaliacoes.
+- `iam`: organizacoes, usuarios, memberships e credenciais metadata-only.
+- `billing`: catalogo e estado financeiro server-side.
+- `ops`: estado operacional, exports, jobs e auditoria append-only.
 
-Isso evita depender da API a cada render do frontend.
+Arquivos em `backend/data` e `backend/artifacts` sao aceitos somente pelo importador explicito. Nao existe fallback persistente em disco no runtime.
 
 ## Atualidade de Fixtures
 
-`GET /fixtures` retorna apenas jogos com `isoDate` maior que o horario atual. Assim, quando chega o horario de inicio da partida, ela deixa de aparecer. O frontend consulta o backend a cada 30 segundos e tambem faz poda local a cada 5 segundos para evitar que uma partida permaneça visivel entre duas consultas.
+`GET /v1/fixtures` retorna apenas jogos com `isoDate` maior que o horario atual. Assim, quando chega o horario de inicio da partida, ela deixa de aparecer. O frontend consulta o backend a cada 30 segundos e tambem faz poda local a cada 5 segundos para evitar que uma partida permaneça visivel entre duas consultas.
 
-Quando `API_FOOTBALL_KEY` esta configurada, o backend pode atualizar o cache da API-Football automaticamente respeitando `BETINTEL_FIXTURE_REFRESH_MS`.
+Quando `API_FOOTBALL_KEY` esta configurada, o backend pode atualizar fixtures reais. Falha de provider e relatada sem gerar fixtures simuladas.

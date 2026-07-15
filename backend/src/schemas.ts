@@ -239,11 +239,17 @@ export interface CompetitionSummary {
 export interface SyncReport {
   generatedAt: string
   sourceProvider: string
-  dataDir: string
+  storage: 'postgresql'
+  datasetVersionId: string | null
   fixtures: number
   resultRows: number
+  acceptedRows: number
+  rejectedRows: number
+    duplicateRows: number
+    correctedResults: number
   usedApiFootball: boolean
   usedFootballData: boolean
   simulated: boolean
+  importIssues: Array<{ source: string; row: number | string; code: string; message: string }>
   warnings: string[]
 }

@@ -12,6 +12,7 @@ interface MatchListProps {
   selectedId: string
   showForm: boolean
   usingFallback: boolean
+  demoMode: boolean
   backendError: string | null
   onView: (id: string) => void
 }
@@ -23,12 +24,14 @@ export default function MatchList({
   selectedId,
   showForm,
   usingFallback,
+  demoMode,
   backendError,
   onView,
 }: MatchListProps) {
   const n = def.length
   const cw = n >= 3 ? 66 : 80
   const gridTemplate = `74px minmax(190px,1fr) repeat(${n}, ${cw}px) 80px 110px`
+  const backendOffline = backendError?.startsWith('Backend indisponivel') ?? false
 
   const headerStyle: CSSProperties = { gridTemplateColumns: gridTemplate }
 
@@ -42,12 +45,18 @@ export default function MatchList({
             <span className={styles.count}>{matches.length} confrontos</span>
           </div>
           <p className={styles.lead}>
-            Análises baseadas em forma recente, gols, mando de campo e padrões históricos simulados.
+            {demoMode
+              ? 'Amostra visual com confrontos e probabilidades simulados para apresentação.'
+              : 'Analises educacionais baseadas em fixtures reais, historico local e padroes estatisticos.'}
           </p>
-          <div className={`${styles.dataState} ${usingFallback ? styles.dataWarn : styles.dataOk}`}>
-            {usingFallback
-              ? `Fallback mockado ativo${backendError ? `: ${backendError}` : ''}`
-              : 'Dados carregados do backend local'}
+          <div className={`${styles.dataState} ${usingFallback || backendError ? styles.dataWarn : styles.dataOk}`}>
+            {demoMode
+              ? 'Modo demonstração: dados simulados, sem conexão com casas de apostas.'
+              : backendError
+              ? backendError
+              : usingFallback
+                ? 'Fixture simulada recebida do backend e ocultada no modo de dados reais'
+                : 'Dados reais carregados do backend local'}
           </div>
           <div className={styles.marketRow}>
             <span className={styles.marketRowLabel}>Mercado em exibição</span>
@@ -85,7 +94,13 @@ export default function MatchList({
         ))}
 
         {matches.length === 0 && (
-          <div className={styles.empty}>Nenhum jogo encontrado para os filtros selecionados.</div>
+          <div className={styles.empty}>
+            {backendOffline
+              ? 'Nenhum jogo real carregado. Inicie o backend em http://127.0.0.1:3333 e verifique API_FOOTBALL_KEY.'
+              : backendError
+                ? backendError
+              : 'Nenhum jogo encontrado para os filtros selecionados.'}
+          </div>
         )}
 
         {/* Footer disclaimer */}

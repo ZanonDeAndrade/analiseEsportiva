@@ -1,0 +1,49 @@
+groups:
+  - name: betintel-production
+    rules:
+      - alert: BetIntelApiUnavailable
+        expr: min_over_time(up{job="betintel-api"}[2m]) == 0
+        for: 2m
+        labels: { severity: critical, receiver: pager-primary }
+        annotations: { runbook: "observability-runbook#7-indisponibilidade" }
+      - alert: BetIntelHttpErrorRateHigh
+        expr: sum(rate(betintel_http_requests_total{status_code=~"5.."}[5m])) / clamp_min(sum(rate(betintel_http_requests_total[5m])), 0.001) > 0.05
+        for: 10m
+        labels: { severity: critical, receiver: pager-primary }
+        annotations: { runbook: "observability-runbook#7-indisponibilidade" }
+      - alert: BetIntelHttpP99Degraded
+        expr: histogram_quantile(0.99, sum by (le, route) (rate(betintel_http_request_duration_seconds_bucket[10m]))) > 2
+        for: 15m
+        labels: { severity: warning, receiver: engineering }
+        annotations: { runbook: "observability-runbook#7-indisponibilidade" }
+      - alert: BetIntelDependencyUnavailable
+        expr: min_over_time(betintel_dependency_up{dependency=~"postgresql|redis"}[2m]) == 0
+        for: 2m
+        labels: { severity: critical, receiver: pager-primary }
+        annotations: { runbook: "observability-runbook#7-indisponibilidade" }
+      - alert: BetIntelQueueStalled
+        expr: sum(betintel_queue_depth{status="queued"}) > 0 and sum(increase(betintel_job_executions_total[15m])) == 0
+        for: 15m
+        labels: { severity: critical, receiver: pager-primary }
+        annotations: { runbook: "observability-runbook#7-indisponibilidade" }
+      - alert: BetIntelSportsDataStale
+        expr: betintel_sports_data_age_seconds > 86400
+        for: 30m
+        labels: { severity: warning, receiver: data-operations }
+        annotations: { runbook: "observability-runbook#6-importacao-errada" }
+      - alert: BetIntelProviderQuotaNearLimit
+        expr: max by (provider, period) (betintel_external_api_quota_ratio) >= 0.8
+        for: 5m
+        labels: { severity: warning, receiver: data-operations }
+        annotations: { runbook: "observability-runbook#7-indisponibilidade" }
+      - alert: BetIntelBillingWebhookFailure
+        expr: sum(betintel_webhook_events{status="failed"}) > 0
+        for: 5m
+        labels: { severity: critical, receiver: finance-operations }
+        annotations: { runbook: "observability-runbook#4-falha-de-pagamento" }
+      - alert: BetIntelBillingDivergence
+        expr: betintel_billing_reconciliation_divergences > 0
+        for: 5m
+        labels: { severity: critical, receiver: finance-operations }
+        annotations: { runbook: "observability-runbook#4-falha-de-pagamento" }
+

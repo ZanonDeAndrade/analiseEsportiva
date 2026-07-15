@@ -14,30 +14,30 @@ export interface RecentMatch {
 
 /**
  * Core probabilities for a fixture, expressed as estimated percentages (0–100).
- * These are simulated/educational figures — never odds from a real sportsbook.
+ * Educational estimates derived from the backend model — never odds from a real sportsbook.
  */
 export interface MatchProbabilities {
-  homeWin: number
-  draw: number
-  awayWin: number
-  over15: number
-  over25: number
-  bothTeamsScore: number
+  homeWin?: number
+  draw?: number
+  awayWin?: number
+  over15?: number
+  over25?: number
+  bothTeamsScore?: number
   /** Dupla chance 1X (casa ou empate). */
-  doubleChance: number
+  doubleChance?: number
 }
 
-/** Aggregated simulated statistics for the fixture. */
+/** Aggregated educational statistics for the fixture. */
 export interface MatchStats {
-  homeAvgGoalsFor: number
-  awayAvgGoalsFor: number
-  homeAvgGoalsAgainst: number
-  awayAvgGoalsAgainst: number
-  over15Rate: number
-  over25Rate: number
-  bttsRate: number
+  homeAvgGoalsFor?: number
+  awayAvgGoalsFor?: number
+  homeAvgGoalsAgainst?: number
+  awayAvgGoalsAgainst?: number
+  over15Rate?: number
+  over25Rate?: number
+  bttsRate?: number
   /** Clean sheets in the last 5 games (0–5). */
-  cleanSheets: number
+  cleanSheets?: number
 }
 
 export interface Match {

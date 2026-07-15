@@ -30,7 +30,7 @@ export interface ApiFootballSyncOptions {
   to?: string
   years?: number
   baseUrl?: string
-  fetcher?: FetchLike
+  fetcher?: ApiFootballFetchLike
 }
 
 export interface ApiFootballSyncResult {
@@ -40,7 +40,7 @@ export interface ApiFootballSyncResult {
   warnings: string[]
 }
 
-type FetchLike = (
+export type ApiFootballFetchLike = (
   url: string,
   init?: { headers?: Record<string, string> },
 ) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown>; text?: () => Promise<string> }>
@@ -396,11 +396,11 @@ function sleep(ms: number) {
  * sync sao sequenciais, entao um simples controle de tempo global e suficiente.
  */
 async function rateLimitedFetch(
-  fetcher: FetchLike,
+  fetcher: ApiFootballFetchLike,
   url: string,
   init: { headers?: Record<string, string> },
   useThrottle: boolean,
-): Promise<Awaited<ReturnType<FetchLike>>> {
+): Promise<Awaited<ReturnType<ApiFootballFetchLike>>> {
   if (!useThrottle) return fetcher(url, init)
 
   const gap = lastRequestAt + REQUEST_GAP_MS - Date.now()

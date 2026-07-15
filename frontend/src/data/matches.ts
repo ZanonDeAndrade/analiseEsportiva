@@ -9,20 +9,10 @@
 
 import type { Confidence, LeagueId, Match, RecentMatch, Result } from '../types'
 import { clamp } from '../lib/markets'
+import { LEAGUES } from './leagues'
 
-export interface LeagueMeta {
-  id: LeagueId
-  name: string
-}
-
-export const LEAGUES: LeagueMeta[] = [
-  { id: 'BRA', name: 'Brasileirão Série A' },
-  { id: 'PL', name: 'Premier League' },
-  { id: 'LL', name: 'La Liga' },
-  { id: 'L1', name: 'Ligue 1' },
-  { id: 'BUN', name: 'Bundesliga' },
-  { id: 'WC2026', name: 'Copa do Mundo 2026' },
-]
+export { LEAGUES }
+export type { LeagueMeta } from './leagues'
 
 const LEAGUE_NAME: Record<LeagueId, string> = Object.fromEntries(
   LEAGUES.map((l) => [l.id, l.name]),
@@ -254,3 +244,24 @@ function enrich(r: RawMatch): Match {
 }
 
 export const matches: Match[] = RAW.map(enrich)
+
+const SCREENSHOT_MATCH_IDS = new Set(['m1', 'm4', 'm6', 'm10'])
+
+/**
+ * Pequena amostra exclusivamente visual, ativada pelo frontend com `?demo=1`.
+ * Não participa do carregamento normal e nunca funciona como fallback da API.
+ */
+export const screenshotMatches: Match[] = matches
+  .filter((match) => SCREENSHOT_MATCH_IDS.has(match.id))
+  .map((match, index) => ({
+    ...match,
+    id: `screenshot-${match.id}`,
+    date: index < 2 ? 'Hoje · demonstração' : 'Próximos dias',
+    period: index < 2 ? 'hoje' : '7dias',
+    sourceProvider: 'Demonstração visual local',
+    updatedAt: undefined,
+    sampleSize: 240 + index * 35,
+    ethicalNotice:
+      'Dados simulados para demonstração visual. Análises históricas não garantem resultados futuros.',
+    isFallback: true,
+  }))

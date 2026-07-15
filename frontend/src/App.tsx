@@ -1,30 +1,40 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { LeagueId } from './types'
-import { matches as ALL_MATCHES, LEAGUES } from './data/matches'
+import { useAuth0 } from '@auth0/auth0-react'
+import type { LeagueId, Match } from './types'
+import { LEAGUES } from './data/leagues'
+import { screenshotMatches } from './data/matches'
 import { loadBackendMatches } from './lib/api'
 import { marketDef } from './lib/markets'
 import Header from './components/Header'
 import Sidebar, { type LeagueFilter, type PeriodFilter } from './components/Sidebar'
 import MatchList from './components/MatchList'
 import AnalysisPanel from './components/AnalysisPanel'
+import AccountPanel from './components/AccountPanel'
 import styles from './App.module.css'
 
 const SHOW_FORM = true
+const SCREENSHOT_DEMO_MODE = new URLSearchParams(window.location.search).get('demo') === '1'
 
 export default function App() {
+  const { getAccessTokenSilently, logout, user } = useAuth0()
   const [league, setLeague] = useState<LeagueFilter>('todas')
   const [period, setPeriod] = useState<PeriodFilter>('todos')
   const [market, setMarket] = useState('1X2')
   const [query, setQuery] = useState('')
-  const [selected, setSelected] = useState('m1')
+  const [selected, setSelected] = useState('')
   const [aiOn, setAiOn] = useState(true)
-  const [matches, setMatches] = useState(ALL_MATCHES)
+  const [matches, setMatches] = useState<Match[]>(
+    SCREENSHOT_DEMO_MODE ? screenshotMatches : [],
+  )
   const [backendError, setBackendError] = useState<string | null>(null)
-  const [usingFallback, setUsingFallback] = useState(true)
+  const [usingFallback, setUsingFallback] = useState(false)
 
   // Mobile / tablet drawer state
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [analysisOpen, setAnalysisOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(
+    new URLSearchParams(window.location.search).get('account') === '1',
+  )
 
   // Period + query filter (shared base; league counts derive from this).
   const base = useMemo(() => {
@@ -56,19 +66,28 @@ export default function App() {
   const selectedMatch = matches.find((m) => m.id === selected) ?? matches[0]
 
   useEffect(() => {
-    let cancelled = false
-    let didForceRefresh = false
+    if (SCREENSHOT_DEMO_MODE) {
+      setSelected(screenshotMatches[0]?.id ?? '')
+      setUsingFallback(true)
+      return
+    }
 
+    let cancelled = false
     const refreshMatches = () => {
-      loadBackendMatches(!didForceRefresh)
+      loadBackendMatches(getAccessTokenSilently, false)
         .then((loaded) => {
           if (cancelled) return
-          didForceRefresh = true
 
-          const current = removeExpiredMatches(loaded)
+          const active = removeExpiredMatches(loaded)
+          const current = active.filter((match) => !match.isFallback)
+          const hiddenFallbacks = active.length - current.length
           setMatches(current)
-          setUsingFallback(current.some((match) => match.isFallback))
-          setBackendError(null)
+          setUsingFallback(hiddenFallbacks > 0)
+          setBackendError(
+            hiddenFallbacks > 0
+              ? `${hiddenFallbacks} jogo(s) simulado(s) ocultado(s). Configure a API ou ajuste a janela para exibir apenas jogos reais.`
+              : null,
+          )
           setSelected((selectedId) =>
             current.some((match) => match.id === selectedId) ? selectedId : (current[0]?.id ?? ''),
           )
@@ -77,16 +96,7 @@ export default function App() {
           if (cancelled) return
           const message = error instanceof Error ? error.message : 'Backend indisponivel'
           setBackendError(message)
-          setUsingFallback(true)
-          setMatches(
-            ALL_MATCHES.map((match) => ({
-              ...match,
-              isFallback: true,
-              sourceProvider: 'mock-fallback',
-              backendError: message,
-              ethicalNotice: 'Analise baseada em dados historicos. Nao garante resultado.',
-            })),
-          )
+          setUsingFallback(false)
         })
     }
 
@@ -111,7 +121,7 @@ export default function App() {
       window.clearInterval(refreshTimer)
       window.clearInterval(expiryTimer)
     }
-  }, [])
+  }, [getAccessTokenSilently])
 
   useEffect(() => {
     if (!selectedMatch && matches.length > 0) {
@@ -157,6 +167,18 @@ export default function App() {
         aiOn={aiOn}
         onToggleAI={() => setAiOn((v) => !v)}
         onOpenMenu={() => setSidebarOpen(true)}
+        dataStatus={
+          SCREENSHOT_DEMO_MODE
+            ? 'demo'
+            : backendError?.startsWith('Backend indisponivel') && matches.length === 0
+            ? 'offline'
+            : backendError || usingFallback
+              ? 'warning'
+              : 'real'
+        }
+        userName={user?.name ?? user?.email}
+        onOpenAccount={() => setAccountOpen(true)}
+        onLogout={() => void logout({ logoutParams: { returnTo: window.location.origin } })}
       />
 
       <div id="shell" className={styles.shell}>
@@ -179,6 +201,7 @@ export default function App() {
           selectedId={selectedMatch?.id ?? ''}
           showForm={SHOW_FORM}
           usingFallback={usingFallback}
+          demoMode={SCREENSHOT_DEMO_MODE}
           backendError={backendError}
           onView={handleView}
         />
@@ -198,6 +221,8 @@ export default function App() {
         className={`${styles.backdrop} ${sidebarOpen || analysisOpen ? styles.backdropShow : ''}`}
         onClick={closeDrawers}
       />
+
+      <AccountPanel open={accountOpen} onClose={() => setAccountOpen(false)} />
     </div>
   )
 }

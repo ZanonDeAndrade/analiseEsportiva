@@ -1,0 +1,41 @@
+.screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--bg-app);
+  color: var(--text);
+}
+
+.card {
+  width: min(460px, 100%);
+  padding: 32px;
+  border: 1px solid var(--border-mid);
+  border-radius: 16px;
+  background: var(--bg-panel);
+  box-shadow: 0 20px 60px rgb(0 0 0 / 30%);
+}
+
+.brand {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.brand span { color: var(--accent); }
+.card h1 { margin: 18px 0 10px; }
+.card p { color: var(--muted); line-height: 1.5; }
+.card small { display: block; margin-top: 20px; color: var(--muted); line-height: 1.45; }
+
+.card button {
+  border: 0;
+  border-radius: 9px;
+  padding: 10px 16px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.actions { display: flex; gap: 10px; margin-top: 22px; }
+.card .secondary { background: #30343a; }
+.card .link { margin-top: 14px; padding-left: 0; background: transparent; color: var(--accent); }

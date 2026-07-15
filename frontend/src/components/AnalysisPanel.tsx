@@ -68,7 +68,7 @@ export default function AnalysisPanel({ match, aiOn, open, onClose }: AnalysisPa
           </div>
           <div>
             <span>Fonte</span>
-            <b>{match.sourceProvider ?? 'mock-fallback'}</b>
+            <b>{match.sourceProvider ?? 'backend-local'}</b>
           </div>
           <div>
             <span>Atualizado</span>

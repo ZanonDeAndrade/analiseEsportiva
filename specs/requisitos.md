@@ -4,7 +4,7 @@
 
 - RF01: Exibir jogos futuros com liga/competicao, data, hora, times e mercado selecionado.
 - RF02: Incluir "Copa do Mundo 2026" no filtro lateral.
-- RF03: Buscar fixtures via backend e usar mock marcado quando o backend estiver indisponivel.
+- RF03: Buscar fixtures via backend e mostrar estado amigavel quando o backend estiver indisponivel, sem exibir jogos mockados no fluxo principal.
 - RF04: Exibir fonte dos dados, `updatedAt`, mercados disponiveis e mercados ignorados no painel.
 - RF05: Manter aviso etico visivel.
 - RF06: Sincronizar dados da API-Football quando `API_FOOTBALL_KEY` existir.
@@ -13,7 +13,7 @@
 - RF09: Ignorar odds reais no produto final.
 - RF10: Treinar somente mercados com dados suficientes.
 - RF11: Retornar `dados_insuficientes` para mercado sem coluna ou amostra.
-- RF12: Implementar endpoints minimos: `/health`, `/markets`, `/competitions`, `/sync-data`, `/train`, `/evaluation`, `/backtest`, `/predict`, `/fixtures`.
+- RF12: Implementar API `/v1` para saude, mercados, competicoes, fixtures, predicoes, avaliacoes, backtests, modelo, conta, organizacao e jobs administrativos protegidos.
 - RF13: Implementar CLI para sync, treino, avaliacao e backtest.
 - RF14: Implementar testes de labels, providers e insuficiencia de dados.
 
@@ -34,7 +34,7 @@
 
 - RNF01: TypeScript estrito.
 - RNF02: Frontend responsivo desktop/mobile.
-- RNF03: Backend nao deve depender da API a cada render; usar cache local.
+- RNF03: Backend nao deve depender da API externa a cada render; PostgreSQL e a fonte persistente e cache distribuido exige Redis antes de multiplas replicas.
 - RNF04: Falha de API externa nao deve quebrar frontend nem backend.
 - RNF05: Documentacao deve permitir reproducao por outra pessoa.
 - RNF06: Nenhuma parte do sistema deve prometer lucro ou resultado.
