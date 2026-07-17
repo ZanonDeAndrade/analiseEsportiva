@@ -34,6 +34,23 @@ npm run backend:backtest
 npm run backend:serve
 ```
 
+### Pipeline offline (modo academico, sem PostgreSQL)
+
+Para reproduzir treino, avaliacao e backtest somente a partir de um CSV, sem
+PostgreSQL, Redis ou Auth0:
+
+```bash
+npm run backend:pipeline:offline            # treino + avaliacao no dataset local
+npm run backend:train:offline
+npm run backend:evaluate:offline
+npm run backend:backtest:offline
+```
+
+Cada comando aceita `-- --csv <arquivo>`, `-- --output <arquivo.json>` e
+`-- --min-rows <n>`. Sem `--csv`, os comandos usam PostgreSQL e exigem
+`DATABASE_URL`. O modo offline nao grava nada em `backend/artifacts` (use
+`--output` para salvar).
+
 ## Entrega Esperada
 
-Build sem erro, testes passando, docs atualizadas, Copa 2026 no frontend e backend retornando mercados disponiveis/ignorados com explicacao.
+Build sem erro, testes passando, docs atualizadas e backend retornando mercados disponiveis/ignorados com explicacao.

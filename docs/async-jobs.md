@@ -29,6 +29,7 @@ pode rejeitar novos requests durante a indisponibilidade.
 | `export` | `export` | 2 | 3 | 20 min |
 | `notification` | `notification` | 10 | 5 | 2 min |
 | `billing-reconciliation` | `billing-reconciliation` | 2 | 5 | 10 min |
+| `maintenance` | `privacy-retention` | 1 | 5 | 20 min |
 
 As políticas ficam centralizadas em
 `backend/src/application/jobs/policies.ts`. Todas usam backoff exponencial com

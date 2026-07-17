@@ -55,11 +55,16 @@ export const sportsRoutes: FastifyPluginAsyncTypebox<{
       to: dateBoundary(request.query.to, 'end'),
       includePast: request.query.includePast,
     })
+    const freshness = await repositories.sports.dataFreshnessSummary()
+    const sync = await repositories.systemState.get<{ generatedAt?: string; sourceProvider?: string }>('sports_sync')
+    const warnings = freshness.stale > 0
+      ? [`${freshness.stale} registro(s) vencido(s) foram bloqueados e não são apresentados como atuais.`]
+      : []
     return {
       fixtures,
-      sourceProvider: fixtures[0]?.sourceProvider ?? 'postgresql',
-      updatedAt: fixtures[0]?.updatedAt ?? new Date().toISOString(),
-      warnings: [],
+      sourceProvider: fixtures[0]?.sourceProvider ?? sync?.sourceProvider ?? 'postgresql',
+      updatedAt: fixtures[0]?.updatedAt ?? sync?.generatedAt ?? freshness.checkedAt,
+      warnings,
     }
   })
 
@@ -73,6 +78,9 @@ export const sportsRoutes: FastifyPluginAsyncTypebox<{
   }, async (request) => {
     const fixture = await repositories.sports.findFixture(request.params.id)
     if (!fixture) throw new ApiError(404, 'not_found', 'Fixture não encontrada.')
+    if (fixture.freshness !== 'current') {
+      throw new ApiError(409, 'stale_sports_data', 'A fixture existe, mas seu frescor venceu e ela não pode ser apresentada como atual.')
+    }
     return fixture
   })
 
@@ -139,6 +147,14 @@ export const sportsRoutes: FastifyPluginAsyncTypebox<{
     const model = await repositories.models.getActiveModel()
     if (!model) throw new ApiError(404, 'model_not_ready', 'Modelo ativo ainda não disponível.')
     return {
+      modelVersionId: model.modelVersionId,
+      datasetVersionId: model.datasetVersionId,
+      codeVersion: model.provenance.codeVersion,
+      featureSetVersion: model.provenance.featureSetVersion,
+      modelSchemaVersion: model.provenance.modelSchemaVersion,
+      hyperparameters: model.provenance.hyperparameters,
+      artifactFingerprint: model.provenance.artifactFingerprint,
+      trainingPeriod: model.provenance.trainingPeriod,
       version: model.version,
       createdAt: model.createdAt,
       updatedAt: model.updatedAt,
@@ -146,6 +162,10 @@ export const sportsRoutes: FastifyPluginAsyncTypebox<{
       trainingRows: model.trainingRows,
       sourceProviders: model.sourceProviders,
       competitions: model.competitions,
+      limitations: [
+        'Modelo probabilístico baseado exclusivamente nas features e fontes versionadas.',
+        'Não garante resultados e não constitui recomendação de aposta ou financeira.',
+      ],
       markets: Object.values(model.markets).map((market) => ({
         id: market.market,
         status: market.status,
@@ -164,6 +184,9 @@ async function enrichPredictionRequest(
   if (body.fixtureId === undefined) return body
   const fixture = await repositories.sports.findFixture(body.fixtureId)
   if (!fixture) return body
+  if (fixture.freshness !== 'current') {
+    throw new ApiError(409, 'stale_sports_data', 'A fixture está desatualizada; sincronize o provedor antes de gerar análise.')
+  }
   return {
     ...body,
     homeTeam: fixture.homeTeam,

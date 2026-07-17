@@ -12,7 +12,6 @@ Fonte primaria:
 
 - API-Football / API-Sports.
 - Base URL `https://v3.football.api-sports.io`.
-- Copa 2026: `league=1`, `season=2026`.
 - Chave em `API_FOOTBALL_KEY`.
 
 Fonte secundaria:

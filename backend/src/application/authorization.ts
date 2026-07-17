@@ -19,6 +19,7 @@ export const permissionValues = [
   'organization.create',
   'organization.read',
   'organization.update',
+  'organization.delete',
   'organization.switch',
   'members.read',
   'members.invite',
@@ -31,6 +32,11 @@ export const permissionValues = [
   'jobs.create',
   'api_keys.manage',
   'audit.read',
+  'privacy.export',
+  'privacy.erase',
+  'support.create',
+  'support.manage',
+  'incidents.manage',
   'system.manage',
 ] as const
 
@@ -42,6 +48,9 @@ const commonRead: readonly Permission[] = [
   'organization.switch',
   'members.read',
   'private.read',
+  'privacy.export',
+  'privacy.erase',
+  'support.create',
 ]
 
 export const rolePermissions: Readonly<Record<MembershipRole, ReadonlySet<Permission>>> = {
@@ -57,6 +66,8 @@ export const rolePermissions: Readonly<Record<MembershipRole, ReadonlySet<Permis
     'jobs.create',
     'api_keys.manage',
     'audit.read',
+    'support.manage',
+    'incidents.manage',
     'system.manage',
   ]),
   [MembershipRoles.MEMBER]: new Set([

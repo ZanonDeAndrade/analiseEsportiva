@@ -11,5 +11,4 @@ export const LEAGUES: LeagueMeta[] = [
   { id: 'LL', name: 'La Liga' },
   { id: 'L1', name: 'Ligue 1' },
   { id: 'BUN', name: 'Bundesliga' },
-  { id: 'WC2026', name: 'Copa do Mundo 2026' },
 ]

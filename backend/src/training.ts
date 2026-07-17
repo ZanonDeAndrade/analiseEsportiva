@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import {
   MARKET_IDS,
   type BetIntelModel,
@@ -12,22 +13,33 @@ import { teamKey } from './teamNames.js'
 
 export interface TrainingOptions {
   minRows?: number
+  seed?: number
+  codeVersion?: string
+  featureSetVersion?: string
+  generatedAt?: string
 }
 
 const DEFAULT_MIN_ROWS = 20
+export const DEFAULT_MLOPS_SEED = 2026
+export const FEATURE_SET_VERSION = 'football-features-v4-conservative-pooling'
+export const MODEL_SCHEMA_VERSION = 'betintel-frequency-v4'
 
 export function trainModel(
   records: EngineeredMatchRecord[],
   options: TrainingOptions = {},
 ): BetIntelModel {
   const minRows = options.minRows ?? DEFAULT_MIN_ROWS
+  const seed = options.seed ?? DEFAULT_MLOPS_SEED
+  const codeVersion = options.codeVersion ?? process.env.APP_RELEASE?.trim() ?? 'development'
+  const featureSetVersion = options.featureSetVersion ?? FEATURE_SET_VERSION
+  const trainingPeriod = periodOf(records)
   const markets = Object.fromEntries(
     MARKET_IDS.map((market) => [market, trainMarket(records, market, minRows)]),
   ) as BetIntelModel['markets']
 
   return {
     version: 1,
-    createdAt: new Date().toISOString(),
+    createdAt: options.generatedAt ?? new Date().toISOString(),
     updatedAt: latestUpdatedAt(records) ?? new Date().toISOString(),
     minRows,
     trainingRows: records.length,
@@ -35,6 +47,15 @@ export function trainModel(
     competitions: unique(records.map((record) => record.competition ?? record.league).filter(isString)),
     teamProfiles: buildTeamProfiles(records),
     markets,
+    provenance: {
+      codeVersion,
+      featureSetVersion,
+      modelSchemaVersion: MODEL_SCHEMA_VERSION,
+      hyperparameters: { minRows, seed },
+      trainingPeriod,
+      artifactFingerprint: fingerprint(records, { minRows, seed, codeVersion, featureSetVersion }),
+      runtime: { node: process.version, platform: process.platform, architecture: process.arch },
+    },
   }
 }
 
@@ -128,7 +149,7 @@ function addToGroup<T>(groups: Map<string, T[]>, key: string, entry: T) {
 
 function buildSegmentModel(
   segmentKey: string,
-  labelled: Array<{ labels: { labels: Record<string, boolean> } }>,
+  labelled: Array<{ record: EngineeredMatchRecord; labels: { labels: Record<string, boolean> } }>,
   selectionKeys: string[],
   minRows: number,
 ): SegmentModel {
@@ -164,6 +185,7 @@ function buildSegmentModel(
       positiveCounts,
       totalCounts,
       reason: `Amostra insuficiente: ${sampleSize}/${minRows} linhas com labels válidos.`,
+      period: periodOf(labelled.map((entry) => entry.record)),
     }
   }
 
@@ -174,7 +196,32 @@ function buildSegmentModel(
     probabilities,
     positiveCounts,
     totalCounts,
+    period: periodOf(labelled.map((entry) => entry.record)),
   }
+}
+
+function periodOf(records: EngineeredMatchRecord[]) {
+  const dates = records.map((record) => record.date).filter(isString).sort()
+  return { from: dates[0] ?? 'unknown', to: dates.at(-1) ?? 'unknown' }
+}
+
+function fingerprint(
+  records: EngineeredMatchRecord[],
+  metadata: Record<string, string | number>,
+) {
+  const payload = records.map((record) => ({
+    date: record.date,
+    league: record.league,
+    competition: record.competition,
+    season: record.season,
+    homeTeam: record.homeTeam,
+    awayTeam: record.awayTeam,
+    homeGoals: record.fullTimeHomeGoals,
+    awayGoals: record.fullTimeAwayGoals,
+    corners: record.totalCorners,
+    cards: record.totalCards,
+  }))
+  return createHash('sha256').update(JSON.stringify({ metadata, payload })).digest('hex')
 }
 
 function insufficientReason(market: MarketId, usableRows: number, minRows: number) {
@@ -305,4 +352,3 @@ function updateProfile(profile: TeamProfile, record: EngineeredMatchRecord, side
     if (record.totalCards > 5.5) profile.cardsOver55 += 1
   }
 }
-

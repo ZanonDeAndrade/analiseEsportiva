@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-07-16T03:00:00Z",
+  "overall": "warning",
+  "message": "Monitoramento público ainda não configurado para este ambiente.",
+  "components": [
+    { "name": "Publicação operacional", "status": "warning" }
+  ],
+  "incidents": []
+}

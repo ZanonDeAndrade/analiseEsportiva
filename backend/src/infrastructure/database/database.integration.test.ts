@@ -22,6 +22,7 @@ import { PostgresProviderQuota } from './providerQuota.js'
 import { PostgresTrainingLock, TrainingAlreadyRunningError } from './trainingLock.js'
 import type { SportsImportBatch } from '../../application/ports/persistence.js'
 import type {
+  ActorContext,
   IdentityProvider,
   ProviderSession,
   ProviderUser,
@@ -44,6 +45,7 @@ import {
   deadLetterJobs,
   exportsTable,
   invitations,
+  incidents,
   invoices,
   memberships,
   modelVersions,
@@ -51,11 +53,14 @@ import {
   plans,
   predictions,
   providerApiUsage,
+  savedQueries,
   sessionMetadata,
   subscriptions,
+  supportTickets,
   usageRecords,
   users,
   webhookEvents,
+  alertRules,
 } from './schema.js'
 
 const baseUrl = process.env.TEST_DATABASE_URL
@@ -137,10 +142,10 @@ test('migrations reconstroem o banco do zero com todos os schemas', { skip }, as
   const result = await connectionA.pool.query<{ count: string }>(
     `select count(*)::text as count
       from information_schema.tables
-      where table_schema in ('iam', 'billing', 'sports', 'model', 'ops')
+      where table_schema in ('iam', 'billing', 'legal', 'sports', 'model', 'ops')
         and table_name <> 'schema_migrations'`,
   )
-  assert.equal(Number(result.rows[0].count), 29)
+  assert.equal(Number(result.rows[0].count), 31)
 })
 
 test('constraints preservam integridade referencial e deduplicam webhook', { skip }, async () => {
@@ -191,10 +196,15 @@ test('dados esportivos nao recebem tenant e privados exigem organization_id', { 
           ('billing', 'subscriptions'),
           ('billing', 'usage_records'),
           ('billing', 'invoices'),
+          ('legal', 'acceptances'),
+          ('ops', 'saved_queries'),
+          ('ops', 'alert_rules'),
+          ('ops', 'support_tickets'),
+          ('ops', 'incidents'),
           ('ops', 'exports')
         )`,
   )
-  assert.equal(privateColumns.rows.length, 7)
+  assert.equal(privateColumns.rows.length, 12)
   assert.ok(privateColumns.rows.every((row) => row.is_nullable === 'NO'))
 })
 
@@ -208,7 +218,12 @@ test('RLS e FORCE RLS protegem cada tabela privada mesmo sem filtro da aplicacao
     ['billing', 'subscriptions'],
     ['billing', 'usage_records'],
     ['billing', 'invoices'],
+    ['legal', 'acceptances'],
     ['model', 'predictions'],
+    ['ops', 'saved_queries'],
+    ['ops', 'alert_rules'],
+    ['ops', 'support_tickets'],
+    ['ops', 'incidents'],
     ['ops', 'exports'],
     ['ops', 'background_jobs'],
     ['ops', 'dead_letter_jobs'],
@@ -255,6 +270,11 @@ test('RLS e FORCE RLS protegem cada tabela privada mesmo sem filtro da aplicacao
       trainingRows: 0,
       payload: {},
       payloadSha256: randomHash(),
+      codeVersion: 'test',
+      featureSetVersion: 'test-features',
+      modelSchemaVersion: 'test-model',
+      hyperparameters: { seed: 2026 },
+      artifactFingerprint: randomHash(),
     })
     .returning({ id: modelVersions.id })
   const plan = await connectionA.db
@@ -359,6 +379,30 @@ test('RLS e FORCE RLS protegem cada tabela privada mesmo sem filtro da aplicacao
     requestedByUserId: userB,
     type: 'rls-test',
   })
+  const savedQuery = await connectionA.db
+    .insert(savedQueries)
+    .values({
+      organizationId: organizationB,
+      createdByUserId: userB,
+      name: `RLS ${randomUUID()}`,
+      filters: { league: 'all', period: 'all', market: 'all', query: '' },
+    })
+    .returning({ id: savedQueries.id })
+  await connectionA.db.insert(alertRules).values({
+    organizationId: organizationB,
+    createdByUserId: userB,
+    savedQueryId: savedQuery[0].id,
+    name: `RLS ${randomUUID()}`,
+  })
+  await connectionA.db.insert(supportTickets).values({
+    organizationId: organizationB, createdByUserId: userB, category: 'technical', severity: 'sev3',
+    encryptedContent: 'Y2lwaGVydGV4dA==', contentIv: 'aXY=', contentAuthTag: 'dGFn',
+    encryptionKeyVersion: 'test-v1', slaDueAt: new Date(Date.now() + 3_600_000).toISOString(),
+  })
+  await connectionA.db.insert(incidents).values({
+    organizationId: organizationB, createdByUserId: userB, severity: 'sev2', ownerTeam: 'engineering',
+    encryptedContent: 'Y2lwaGVydGV4dA==', contentIv: 'aXY=', contentAuthTag: 'dGFn', encryptionKeyVersion: 'test-v1',
+  })
   const rlsJob = await connectionA.db
     .insert(backgroundJobs)
     .values({
@@ -403,7 +447,12 @@ test('RLS e FORCE RLS protegem cada tabela privada mesmo sem filtro da aplicacao
       ['billing.subscriptions', 'organization_id'],
       ['billing.usage_records', 'organization_id'],
       ['billing.invoices', 'organization_id'],
+      ['legal.acceptances', 'organization_id'],
       ['model.predictions', 'organization_id'],
+      ['ops.saved_queries', 'organization_id'],
+      ['ops.alert_rules', 'organization_id'],
+      ['ops.support_tickets', 'organization_id'],
+      ['ops.incidents', 'organization_id'],
       ['ops.exports', 'organization_id'],
       ['ops.background_jobs', 'organization_id'],
       ['ops.dead_letter_jobs', 'organization_id'],
@@ -898,12 +947,16 @@ test('correcao de resultado e detectada para disparar reprocessamento', { skip }
   const first = sportsBatch(provider, randomUUID())
   first.contentSha256 = randomHash()
   first.records[0].status = 'finished'
-  first.records[0].result = { homeGoals: 1, awayGoals: 0, outcome: 'H' }
+  first.records[0].result = { homeGoals: 1, awayGoals: 0, outcome: 'H', decision: 'regulation', winner: 'home' }
   const second = structuredClone(first)
   second.contentSha256 = randomHash()
-  second.records[0].result = { homeGoals: 1, awayGoals: 1, outcome: 'D' }
-  assert.equal((await repository.importBatch(first)).correctedResults, 0)
-  assert.equal((await repository.importBatch(second)).correctedResults, 1)
+  second.records[0].result = { homeGoals: 1, awayGoals: 1, outcome: 'D', decision: 'regulation', winner: 'draw' }
+  const firstImport = await repository.importBatch(first)
+  const secondImport = await repository.importBatch(second)
+  assert.equal(firstImport.correctedResults, 0)
+  assert.equal(secondImport.correctedResults, 1)
+  assert.equal((await repository.readTrainingRows(firstImport.datasetVersionId!))[0].FTAG, '0')
+  assert.equal((await repository.readTrainingRows(secondImport.datasetVersionId!))[0].FTAG, '1')
 })
 
 test('reinicio apos efeito de treino reutiliza a mesma model_version', { skip }, async () => {
@@ -924,6 +977,34 @@ test('reinicio apos efeito de treino reutiliza a mesma model_version', { skip },
     [job.id],
   )
   assert.equal(count.rows[0].count, '1')
+})
+
+test('champion challenger promove somente por decisao e rollback restaura versao aposentada', { skip }, async () => {
+  const repositories = createPostgresRepositories(connectionA)
+  const datasetVersionId = await repositories.jobs.latestReadyDatasetVersionId()
+  assert.ok(datasetVersionId)
+  const features = buildFeatureTable(await repositories.sports.readTrainingRows(datasetVersionId))
+  const first = await repositories.models.saveModel(
+    trainModel(features.records, { minRows: 1, codeVersion: 'promotion-test-a' }),
+    datasetVersionId,
+  )
+  assert.notEqual((await repositories.models.getActiveModel())?.modelVersionId, first.id)
+  await repositories.models.applyPromotionDecision(first.id, {
+    decision: 'promote', reasons: ['teste'], evaluatedMarkets: 1, candidateMeanBrier: 0.2,
+  })
+  assert.equal((await repositories.models.getActiveModel())?.modelVersionId, first.id)
+
+  const second = await repositories.models.saveModel(
+    trainModel(features.records, { minRows: 1, codeVersion: 'promotion-test-b' }),
+    datasetVersionId,
+  )
+  await repositories.models.applyPromotionDecision(second.id, {
+    decision: 'promote', reasons: ['challenger aprovado'], evaluatedMarkets: 1,
+    candidateMeanBrier: 0.19, championMeanBrier: 0.2,
+  })
+  assert.equal((await repositories.models.getActiveModel())?.modelVersionId, second.id)
+  assert.equal(await repositories.models.rollbackModel(first.id, 'rollback de teste controlado'), true)
+  assert.equal((await repositories.models.getActiveModel())?.modelVersionId, first.id)
 })
 
 test('organizacoes, convites, RBAC e troca de tenant usam somente a sessao validada', { skip }, async () => {
@@ -1200,6 +1281,74 @@ test('usuario desativado ou sem membership perde acesso imediatamente', { skip }
       (await fetch(`${serverUrl(server)}/v1/me`, authorization(unverifiedToken))).status,
       403,
     )
+  } finally {
+    await close(server)
+  }
+})
+
+test('exportacao do titular e exclusao cobrem dados ativos e revogam acesso', { skip }, async () => {
+  const repositories = createPostgresRepositories(connectionA)
+  const provider = new TestIdentityProvider()
+  const server = authenticatedServer(connectionA, repositories, provider)
+  await listen(server)
+
+  try {
+    const subject = `privacy-${randomUUID()}`
+    const sessionId = `session-${randomUUID()}`
+    const token = provider.token(subject, sessionId)
+    const actor = await responseActor(server, token)
+    const actorContext: ActorContext = {
+      ...actor, provider: 'auth0', subject, sessionId,
+      tokenExpiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      authenticatedAt: new Date().toISOString(),
+    }
+    await repositories.workspace.createSavedQuery(actorContext, 'Exportacao LGPD', {
+      league: 'todas', period: 'todos', market: '1X2', query: 'privada',
+    })
+    const ticket = await fetch(`${serverUrl(server)}/v1/support/tickets`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        category: 'privacy', severity: 'sev3', subject: 'Correcao de cadastro',
+        description: 'Dado pessoal criado somente para o teste de exportacao.',
+      }),
+    })
+    assert.equal(ticket.status, 201, await ticket.text())
+
+    const exported = await fetch(`${serverUrl(server)}/v1/privacy/export`, authorization(token))
+    assert.equal(exported.status, 200)
+    assert.match(exported.headers.get('cache-control') ?? '', /no-store/)
+    const payload = await exported.json() as {
+      subject: { id: string }
+      organizations: unknown[]
+      savedQueries: Array<{ name: string }>
+      supportTickets: Array<{ subject: string }>
+      sessions: unknown[]
+      auditTrail: unknown[]
+    }
+    assert.equal(payload.subject.id, actor.userId)
+    assert.ok(payload.organizations.length >= 1)
+    assert.equal(payload.savedQueries.some((row) => row.name === 'Exportacao LGPD'), true)
+    assert.equal(payload.supportTickets.some((row) => row.subject === 'Correcao de cadastro'), true)
+    assert.ok(payload.sessions.length >= 1)
+    assert.ok(payload.auditTrail.length >= 1)
+
+    const deleted = await fetch(`${serverUrl(server)}/v1/account`, {
+      method: 'DELETE',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: '{}',
+    })
+    assert.equal(deleted.status, 204, await deleted.text())
+    assert.equal((await fetch(`${serverUrl(server)}/v1/me`, authorization(token))).status, 401)
+    const personal = await connectionA.db.select({
+      email: users.email, displayName: users.displayName, providerSubject: users.providerSubject,
+    }).from(users).where(eq(users.id, actor.userId))
+    assert.equal(personal[0].email, null)
+    assert.equal(personal[0].displayName, null)
+    assert.match(personal[0].providerSubject, /^deleted\|[a-f0-9]{64}$/)
+    const remainingTickets = await connectionA.db.select({ id: supportTickets.id })
+      .from(supportTickets).where(eq(supportTickets.createdByUserId, actor.userId))
+    assert.equal(remainingTickets.length, 0)
   } finally {
     await close(server)
   }

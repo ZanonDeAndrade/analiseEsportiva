@@ -1,10 +1,8 @@
 import { deriveOutcome } from '../markets.js'
 import type { CsvRow, FixtureRecord } from '../schemas.js'
+import { decisionFromProviderStatus } from '../domain/sportsData.js'
 
 const DEFAULT_BASE_URL = 'https://v3.football.api-sports.io'
-const WORLD_CUP_LEAGUE = 1
-const WORLD_CUP_SEASON = 2026
-const END_OF_YEAR = '2026-12-31'
 
 export interface ApiFootballCompetitionTarget {
   league: number
@@ -13,14 +11,17 @@ export interface ApiFootballCompetitionTarget {
   name: string
 }
 
-export const defaultApiFootballFixtureTargets: ApiFootballCompetitionTarget[] = [
-  { league: 1, season: 2026, leagueId: 'WC2026', name: 'World Cup 2026' },
-  { league: 71, season: 2026, leagueId: 'BRA', name: 'Brasileirao Serie A' },
-  { league: 39, season: 2026, leagueId: 'PL', name: 'Premier League' },
-  { league: 140, season: 2026, leagueId: 'LL', name: 'La Liga' },
-  { league: 61, season: 2026, leagueId: 'L1', name: 'Ligue 1' },
-  { league: 78, season: 2026, leagueId: 'BUN', name: 'Bundesliga' },
-]
+export function buildApiFootballFixtureTargets(now = new Date()): ApiFootballCompetitionTarget[] {
+  const year = now.getUTCFullYear()
+  const europeanSeason = now.getUTCMonth() >= 6 ? year : year - 1
+  return [
+    { league: 71, season: year, leagueId: 'BRA', name: 'Brasileirao Serie A' },
+    { league: 39, season: europeanSeason, leagueId: 'PL', name: 'Premier League' },
+    { league: 140, season: europeanSeason, leagueId: 'LL', name: 'La Liga' },
+    { league: 61, season: europeanSeason, leagueId: 'L1', name: 'Ligue 1' },
+    { league: 78, season: europeanSeason, leagueId: 'BUN', name: 'Bundesliga' },
+  ]
+}
 
 export interface ApiFootballSyncOptions {
   apiKey: string
@@ -70,6 +71,10 @@ interface ApiFootballFixture {
     home?: number | null
     away?: number | null
   }
+  score?: {
+    extratime?: { home?: number | null; away?: number | null }
+    penalty?: { home?: number | null; away?: number | null }
+  }
   events?: Array<{
     type?: string
     detail?: string
@@ -81,26 +86,12 @@ interface ApiFootballFixture {
   }>
 }
 
-export async function fetchApiFootballWorldCup(
-  options: ApiFootballSyncOptions,
-): Promise<ApiFootballSyncResult> {
-  return fetchApiFootballFixtures({
-    ...options,
-    league: options.league ?? WORLD_CUP_LEAGUE,
-    season: options.season ?? WORLD_CUP_SEASON,
-    from: options.from ?? todayDateParam(),
-    to: options.to ?? END_OF_YEAR,
-    leagueId: 'WC2026',
-    competitionName: 'World Cup 2026',
-  })
-}
-
 export async function fetchApiFootballTargetFixtures(
   options: Omit<ApiFootballSyncOptions, 'league' | 'season'> & {
     targets?: ApiFootballCompetitionTarget[]
   },
 ): Promise<ApiFootballSyncResult> {
-  const targets = options.targets ?? defaultApiFootballFixtureTargets
+  const targets = options.targets ?? buildApiFootballFixtureTargets()
   const results: ApiFootballSyncResult[] = []
   const warnings: string[] = []
 
@@ -112,7 +103,7 @@ export async function fetchApiFootballTargetFixtures(
           league: target.league,
           season: target.season,
           from: options.from ?? todayDateParam(),
-          to: options.to ?? END_OF_YEAR,
+          to: options.to ?? rollingEndDate(),
           leagueId: target.leagueId,
           competitionName: target.name,
         }),
@@ -151,23 +142,12 @@ export function buildApiFootballHistoricalTargets(
 ): ApiFootballCompetitionTarget[] {
   const currentYear = now.getUTCFullYear()
   const startYear = currentYear - normalizeHistoryYears(years)
-  const leagueTargets = defaultApiFootballFixtureTargets.filter((target) => target.league !== WORLD_CUP_LEAGUE)
+  const leagueTargets = buildApiFootballFixtureTargets(now)
   const targets: ApiFootballCompetitionTarget[] = []
 
   for (const target of leagueTargets) {
     for (let season = startYear; season <= currentYear; season += 1) {
       targets.push({ ...target, season })
-    }
-  }
-
-  for (const season of [2022, 2026]) {
-    if (season >= startYear && season <= currentYear) {
-      targets.push({
-        league: WORLD_CUP_LEAGUE,
-        season,
-        leagueId: 'WC2026',
-        name: `World Cup ${season}`,
-      })
     }
   }
 
@@ -186,12 +166,13 @@ export function historyDateRange(years = 5, now = new Date()) {
 
 async function fetchApiFootballFixtures(
   options: ApiFootballSyncOptions & {
+    league: number
+    season: number
     leagueId?: string
     competitionName?: string
   },
 ): Promise<ApiFootballSyncResult> {
-  const league = options.league ?? WORLD_CUP_LEAGUE
-  const season = options.season ?? WORLD_CUP_SEASON
+  const { league, season } = options
   const baseUrl = options.baseUrl ?? DEFAULT_BASE_URL
   const fetcher = options.fetcher ?? fetch
   const updatedAt = new Date().toISOString()
@@ -245,18 +226,22 @@ export function mapApiFootballFixture(
   const corners = extractCorners(fixture)
   const homeTeam = fixture.teams?.home?.name ?? 'Mandante'
   const awayTeam = fixture.teams?.away?.name ?? 'Visitante'
-  const leagueName = fixture.league?.name ?? 'World Cup'
-  const season = String(fixture.league?.season ?? WORLD_CUP_SEASON)
-  const competition = competitionName ?? (leagueName === 'World Cup' ? `World Cup ${season}` : leagueName)
+  const leagueName = fixture.league?.name ?? 'Competicao desconhecida'
+  const season = fixture.league?.season === undefined ? '' : String(fixture.league.season)
+  const competition = competitionName ?? leagueName
+  const rawStatus = fixture.fixture?.status?.short ?? 'FT'
+  const decision = decisionFromProviderStatus(rawStatus)
 
   return {
-    Div: fixture.league?.id ? String(fixture.league.id) : '1',
+    Div: fixture.league?.id ? String(fixture.league.id) : 'api',
     League: leagueName,
     Competition: competition,
     Season: season,
     Date: fixture.fixture?.date?.slice(0, 10) ?? '',
     HomeTeam: homeTeam,
     AwayTeam: awayTeam,
+    HomeTeamExternalId: fixture.teams?.home?.id === undefined ? undefined : String(fixture.teams.home.id),
+    AwayTeamExternalId: fixture.teams?.away?.id === undefined ? undefined : String(fixture.teams.away.id),
     FTHG: homeGoals === null || homeGoals === undefined ? undefined : String(homeGoals),
     FTAG: awayGoals === null || awayGoals === undefined ? undefined : String(awayGoals),
     FTR:
@@ -270,6 +255,13 @@ export function mapApiFootballFixture(
     HR: cards.homeRed === undefined ? undefined : String(cards.homeRed),
     AR: cards.awayRed === undefined ? undefined : String(cards.awayRed),
     SourceProvider: 'api-football',
+    ExternalFixtureId: fixture.fixture?.id === undefined ? undefined : String(fixture.fixture.id),
+    RawStatus: rawStatus,
+    ResultDecision: decision,
+    HomeExtraTimeGoals: optionalScore(fixture.score?.extratime?.home),
+    AwayExtraTimeGoals: optionalScore(fixture.score?.extratime?.away),
+    HomePenaltyGoals: optionalScore(fixture.score?.penalty?.home),
+    AwayPenaltyGoals: optionalScore(fixture.score?.penalty?.away),
     UpdatedAt: updatedAt,
   }
 }
@@ -282,15 +274,15 @@ export function mapApiFootballFixtureRecord(
 ): FixtureRecord {
   const isoDate = fixture.fixture?.date ?? new Date().toISOString()
   const date = new Date(isoDate)
-  const season = String(fixture.league?.season ?? WORLD_CUP_SEASON)
-  const leagueName = fixture.league?.name ?? 'World Cup'
-  const competition = competitionName ?? (leagueName === 'World Cup' ? `World Cup ${season}` : leagueName)
+  const season = fixture.league?.season === undefined ? '' : String(fixture.league.season)
+  const leagueName = fixture.league?.name ?? 'Competicao desconhecida'
+  const competition = competitionName ?? leagueName
 
   return {
     id: fixture.fixture?.id ? `api-football-${fixture.fixture.id}` : `${competition}-${isoDate}`,
     fixtureId: fixture.fixture?.id,
     competition,
-    leagueId: leagueId ?? (competition === 'World Cup 2026' ? 'WC2026' : String(fixture.league?.id ?? 'api')),
+    leagueId: leagueId ?? String(fixture.league?.id ?? 'api'),
     league: leagueName,
     season,
     round: fixture.league?.round,
@@ -376,6 +368,10 @@ function numericValue(value: number | string | null | undefined) {
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
+function optionalScore(value: number | null | undefined) {
+  return value === null || value === undefined ? undefined : String(value)
+}
+
 function isCompletedRow(row: CsvRow) {
   return row.FTHG !== undefined && row.FTAG !== undefined
 }
@@ -431,6 +427,12 @@ function extractApiErrors(errors: unknown): string[] {
 
 function todayDateParam() {
   return new Date().toISOString().slice(0, 10)
+}
+
+function rollingEndDate(now = new Date()) {
+  const end = new Date(now)
+  end.setUTCDate(end.getUTCDate() + 366)
+  return end.toISOString().slice(0, 10)
 }
 
 function dedupeFixtures(fixtures: FixtureRecord[]) {

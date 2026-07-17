@@ -90,24 +90,24 @@ test('predicao expoe status dados_insuficientes com motivo', () => {
 
 test('predicao diferencia jogos do mesmo segmento usando perfil dos times', () => {
   const rows: CsvRow[] = [
-    { Div: 'T', Competition: 'Teste Cup', Season: '2026', HomeTeam: 'Alpha', AwayTeam: 'Beta', FTHG: '4', FTAG: '0' },
-    { Div: 'T', Competition: 'Teste Cup', Season: '2026', HomeTeam: 'Alpha', AwayTeam: 'Gamma', FTHG: '3', FTAG: '1' },
-    { Div: 'T', Competition: 'Teste Cup', Season: '2026', HomeTeam: 'Beta', AwayTeam: 'Alpha', FTHG: '0', FTAG: '2' },
-    { Div: 'T', Competition: 'Teste Cup', Season: '2026', HomeTeam: 'Delta', AwayTeam: 'Gamma', FTHG: '0', FTAG: '3' },
-    { Div: 'T', Competition: 'Teste Cup', Season: '2026', HomeTeam: 'Delta', AwayTeam: 'Beta', FTHG: '0', FTAG: '2' },
-    { Div: 'T', Competition: 'Teste Cup', Season: '2026', HomeTeam: 'Gamma', AwayTeam: 'Delta', FTHG: '2', FTAG: '0' },
+    { Div: 'T', Competition: 'Liga Teste', Season: '2026', HomeTeam: 'Alpha', AwayTeam: 'Beta', FTHG: '4', FTAG: '0' },
+    { Div: 'T', Competition: 'Liga Teste', Season: '2026', HomeTeam: 'Alpha', AwayTeam: 'Gamma', FTHG: '3', FTAG: '1' },
+    { Div: 'T', Competition: 'Liga Teste', Season: '2026', HomeTeam: 'Beta', AwayTeam: 'Alpha', FTHG: '0', FTAG: '2' },
+    { Div: 'T', Competition: 'Liga Teste', Season: '2026', HomeTeam: 'Delta', AwayTeam: 'Gamma', FTHG: '0', FTAG: '3' },
+    { Div: 'T', Competition: 'Liga Teste', Season: '2026', HomeTeam: 'Delta', AwayTeam: 'Beta', FTHG: '0', FTAG: '2' },
+    { Div: 'T', Competition: 'Liga Teste', Season: '2026', HomeTeam: 'Gamma', AwayTeam: 'Delta', FTHG: '2', FTAG: '0' },
   ]
   const model = trainModel(buildFeatureTable(rows).records, { minRows: 2 })
   const alpha = predictMarkets(model, {
     homeTeam: 'Alpha',
     awayTeam: 'Beta',
-    competition: 'Teste Cup',
+    competition: 'Liga Teste',
     season: '2026',
   }).availableMarkets.find((market) => market.market === '1X2')
   const delta = predictMarkets(model, {
     homeTeam: 'Delta',
     awayTeam: 'Gamma',
-    competition: 'Teste Cup',
+    competition: 'Liga Teste',
     season: '2026',
   }).availableMarkets.find((market) => market.market === '1X2')
 
@@ -122,13 +122,13 @@ test('provider API-Football normaliza fixture com eventos e estatisticas', () =>
   const row = mapApiFootballFixture({
     fixture: {
       id: 100,
-      date: '2026-06-11T19:00:00+00:00',
+      date: '2026-08-11T19:00:00+00:00',
       status: { short: 'FT' },
     },
-    league: { id: 1, name: 'World Cup', season: 2026, round: 'Group Stage - 1' },
+    league: { id: 39, name: 'Premier League', season: 2026, round: 'Matchweek 1' },
     teams: {
-      home: { id: 10, name: 'Brasil' },
-      away: { id: 20, name: 'Japao' },
+      home: { id: 10, name: 'Arsenal' },
+      away: { id: 20, name: 'Everton' },
     },
     goals: { home: 2, away: 1 },
     events: [
@@ -141,8 +141,8 @@ test('provider API-Football normaliza fixture com eventos e estatisticas', () =>
     ],
   })
 
-  assert.equal(row.HomeTeam, 'Brasil')
-  assert.equal(row.AwayTeam, 'Japao')
+  assert.equal(row.HomeTeam, 'Arsenal')
+  assert.equal(row.AwayTeam, 'Everton')
   assert.equal(row.FTHG, '2')
   assert.equal(row.FTAG, '1')
   assert.equal(row.FTR, 'H')
@@ -150,7 +150,7 @@ test('provider API-Football normaliza fixture com eventos e estatisticas', () =>
   assert.equal(row.AC, '3')
   assert.equal(row.HY, '1')
   assert.equal(row.AR, '1')
-  assert.equal(row.Competition, 'World Cup 2026')
+  assert.equal(row.Competition, 'Premier League')
 })
 
 test('provider API-Football monta alvos historicos dos ultimos 5 anos', () => {
@@ -161,8 +161,20 @@ test('provider API-Football monta alvos historicos dos ultimos 5 anos', () => {
   assert.deepEqual(range, { from: '2021-06-25', to: '2026-06-25' })
   assert.equal(targets.some((target) => target.league === 39 && target.season === 2021), true)
   assert.equal(targets.some((target) => target.league === 39 && target.season === 2026), true)
-  assert.equal(targets.some((target) => target.league === 1 && target.season === 2022), true)
-  assert.equal(targets.some((target) => target.league === 1 && target.season === 2026), true)
+})
+
+test('provider API-Football preserva vencedor por penaltis sem reescrever empate', () => {
+  const row = mapApiFootballFixture({
+    fixture: { id: 200, date: '2026-08-15T23:00:00Z', status: { short: 'PEN' } },
+    league: { id: 140, name: 'La Liga', season: 2026 },
+    teams: { home: { id: 1, name: 'A' }, away: { id: 2, name: 'B' } },
+    goals: { home: 1, away: 1 },
+    score: { penalty: { home: 5, away: 4 } },
+  })
+  assert.equal(row.FTR, 'D')
+  assert.equal(row.ResultDecision, 'penalties')
+  assert.equal(row.HomePenaltyGoals, '5')
+  assert.equal(row.AwayPenaltyGoals, '4')
 })
 
 test('provider Football-Data normaliza CSV historico e ignora odds no produto', () => {
@@ -187,9 +199,9 @@ test('fixture deixa de ser exibida quando horario de inicio chega', () => {
   const now = new Date('2026-06-24T18:00:00.000Z')
   const base = {
     id: 'fixture',
-    competition: 'World Cup 2026',
-    leagueId: 'WC2026',
-    league: 'World Cup',
+    competition: 'Premier League',
+    leagueId: 'PL',
+    league: 'Premier League',
     season: '2026',
     date: '24 jun.',
     time: '15:00',

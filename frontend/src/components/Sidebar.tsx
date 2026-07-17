@@ -2,13 +2,43 @@ import type { CSSProperties } from 'react'
 import type { LeagueId, Period } from '../types'
 import { LEAGUES } from '../data/leagues'
 import { MARKETS } from '../lib/markets'
-import { dotColor } from '../lib/theme'
 import NavButton from './NavButton'
-import { CalendarIcon, ChartIcon, CloseIcon, ListIcon } from './Icons'
+import {
+  CalendarIcon,
+  ChartIcon,
+  CloseIcon,
+  GaugeIcon,
+  ListIcon,
+  PitchIcon,
+  ShieldKeyIcon,
+  SlidersIcon,
+  WhistleIcon,
+} from './Icons'
+import LeagueCrest, { AllLeaguesCrest } from './LeagueCrest'
 import styles from './Sidebar.module.css'
+import type { OrganizationSummary } from '../lib/saasApi'
+
+/** Cada item de navegacao usa uma marca do proprio futebol, nao um icone generico. */
+const NAV_ICON: Record<WorkspaceView, (props: { size?: number; color?: string }) => JSX.Element> = {
+  dashboard: PitchIcon,
+  billing: GaugeIcon,
+  account: ShieldKeyIcon,
+  support: WhistleIcon,
+  admin: SlidersIcon,
+}
+
+function NavGlyph({ view, active }: { view: WorkspaceView; active: boolean }) {
+  const Icon = NAV_ICON[view]
+  return (
+    <span className={styles.navIcon}>
+      <Icon size={18} color={active ? 'var(--signal, #ff8c42)' : 'var(--muted-4, #7d848d)'} />
+    </span>
+  )
+}
 
 export type LeagueFilter = LeagueId | 'todas'
 export type PeriodFilter = Period | 'todos'
+export type WorkspaceView = 'dashboard' | 'billing' | 'account' | 'support' | 'admin'
 
 interface SidebarProps {
   league: LeagueFilter
@@ -18,6 +48,12 @@ interface SidebarProps {
   onLeague: (id: LeagueFilter) => void
   onPeriod: (id: PeriodFilter) => void
   onMarket: (name: string) => void
+  activeView: WorkspaceView
+  onNavigate: (view: WorkspaceView) => void
+  organizations: OrganizationSummary[]
+  activeOrganizationId?: string
+  onSwitchOrganization: (organizationId: string) => void
+  platformAdmin: boolean
   /** Mobile drawer state. */
   open: boolean
   onClose: () => void
@@ -43,17 +79,56 @@ export default function Sidebar({
   onLeague,
   onPeriod,
   onMarket,
+  activeView,
+  onNavigate,
+  organizations,
+  activeOrganizationId,
+  onSwitchOrganization,
+  platformAdmin,
   open,
   onClose,
 }: SidebarProps) {
   return (
-    <aside id="sidebar" className={`${styles.sidebar} ${open ? styles.open : ''}`}>
+    <aside id="sidebar" aria-label="Navegacao e filtros" className={`${styles.sidebar} ${open ? styles.open : ''}`}>
       <div className={styles.mobileHeader}>
-        <span>Filtros</span>
+        <span>{'Navega\u00e7\u00e3o'}</span>
         <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Fechar filtros">
           <CloseIcon size={18} />
         </button>
       </div>
+
+      <nav aria-label={'Navega\u00e7\u00e3o principal'} className={styles.productNav}>
+        {organizations.length > 1 && <label className={styles.sidebarOrganization}>
+          <span>{'Espa\u00e7o de trabalho'}</span>
+          <select aria-label={'Organiza\u00e7\u00e3o ativa no menu'} value={activeOrganizationId ?? ''} onChange={(event) => onSwitchOrganization(event.target.value)}>
+            {organizations.map((organization) => <option key={organization.id} value={organization.id}>{organization.name}</option>)}
+          </select>
+        </label>}
+        {([
+          ['dashboard', 'Jogos e an\u00e1lises'],
+        ] as const).map(([view, label]) => (
+          <NavButton key={view} active={activeView === view} bar onClick={() => onNavigate(view)}>
+            <NavGlyph view={view} active={activeView === view} />
+            <span className={styles.flexLabel}>{label}</span>
+          </NavButton>
+        ))}
+        {([
+          ['billing', 'Plano e uso'],
+          ['account', 'Conta e seguran\u00e7a'],
+          ['support', 'Ajuda e suporte'],
+        ] as const).map(([view, label]) => (
+          <NavButton key={view} active={activeView === view} bar onClick={() => onNavigate(view)}>
+            <NavGlyph view={view} active={activeView === view} />
+            <span className={styles.flexLabel}>{label}</span>
+          </NavButton>
+        ))}
+        {platformAdmin && <NavButton active={activeView === 'admin'} bar onClick={() => onNavigate('admin')}>
+          <NavGlyph view="admin" active={activeView === 'admin'} /><span className={styles.flexLabel}>Operacao interna</span>
+        </NavButton>}
+      </nav>
+
+      {activeView === 'dashboard' && <>
+      <div className={styles.filterDivider} />
 
       {/* Ligas */}
       <div className={styles.sectionLabel}>
@@ -62,14 +137,6 @@ export default function Sidebar({
       <div className={styles.group}>
         {LEAGUE_OPTIONS.map((lg) => {
           const active = league === lg.id
-          const dotStyle: CSSProperties = {
-            width: 8,
-            height: 8,
-            borderRadius: 2,
-            flexShrink: 0,
-            background: lg.dot ? dotColor(lg.dot) : 'transparent',
-            border: lg.dot ? 'none' : '1px solid rgba(255,255,255,.22)',
-          }
           const countStyle: CSSProperties = {
             fontSize: 10.5,
             fontWeight: 700,
@@ -88,7 +155,9 @@ export default function Sidebar({
               onClick={() => onLeague(lg.id)}
               right={<span style={countStyle}>{counts[lg.id] ?? 0}</span>}
             >
-              <span style={dotStyle} />
+              <span className={styles.crest}>
+                {lg.dot ? <LeagueCrest league={lg.dot} size={18} /> : <AllLeaguesCrest size={18} />}
+              </span>
               <span className={styles.ellipsis}>{lg.name}</span>
             </NavButton>
           )
@@ -134,6 +203,7 @@ export default function Sidebar({
           )
         })}
       </div>
+      </>}
     </aside>
   )
 }

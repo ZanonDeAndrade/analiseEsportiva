@@ -4,6 +4,8 @@ import { buildAnalysis } from '../lib/analysis'
 import { confChipStyle, formChipStyle } from '../lib/theme'
 import { CloseIcon, InfoIcon, SparkIcon } from './Icons'
 import styles from './AnalysisPanel.module.css'
+import RiskWarning from './RiskWarning'
+import { insufficientDataNotice } from '../legal/risk-warnings'
 
 interface AnalysisPanelProps {
   match: Match
@@ -26,7 +28,7 @@ export default function AnalysisPanel({ match, aiOn, open, onClose }: AnalysisPa
   const a = buildAnalysis(match)
 
   return (
-    <aside id="analysis" className={`${styles.panel} ${open ? styles.open : ''}`}>
+    <aside id="analysis" aria-label="Detalhe da analise" tabIndex={0} className={`${styles.panel} ${open ? styles.open : ''}`}>
       <div className={styles.body}>
         <div className={styles.topRow}>
           <div className={styles.aiBadge}>
@@ -45,6 +47,13 @@ export default function AnalysisPanel({ match, aiOn, open, onClose }: AnalysisPa
             </button>
           </div>
         </div>
+
+        <ol className={styles.evidenceRail} aria-label="Trilho de evidencia da predicao">
+          <li><span>01</span><div><small>ORIGEM</small><b>{match.sourceProvider ?? 'nao informada'}</b></div></li>
+          <li><span>02</span><div><small>PERIODO</small><b>{formatPeriod(match.modelPeriod)}</b></div></li>
+          <li><span>03</span><div><small>AMOSTRA</small><b>{match.sampleSize ?? 'n/d'}</b></div></li>
+          <li><span>04</span><div><small>MODELO</small><b>{shortVersion(match.modelVersion)}</b></div></li>
+        </ol>
 
         <h2 className={styles.title}>{a.title}</h2>
         <div className={styles.leagueDate}>{a.leagueDate}</div>
@@ -78,7 +87,23 @@ export default function AnalysisPanel({ match, aiOn, open, onClose }: AnalysisPa
             <span>Amostra</span>
             <b>{match.sampleSize ?? 'n/d'}</b>
           </div>
+          <div>
+            <span>Modelo</span>
+            <b>{shortVersion(match.modelVersion)}</b>
+          </div>
+          <div>
+            <span>Período</span>
+            <b>{formatPeriod(match.modelPeriod)}</b>
+          </div>
         </div>
+
+        <RiskWarning variant="analysis" />
+
+        {match.backendError && <div className={styles.predictionError} role="alert"><b>Predicao indisponivel</b><span>{match.backendError}</span><small>A fixture continua visivel, mas nenhuma probabilidade foi substituida por valor ficticio.</small></div>}
+
+        {match.availableMarkets?.length === 0 && (
+          <div className={styles.insufficientData} role="status">{insufficientDataNotice}</div>
+        )}
 
         {match.availableMarkets && match.availableMarkets.length > 0 && (
           <>
@@ -88,8 +113,34 @@ export default function AnalysisPanel({ match, aiOn, open, onClose }: AnalysisPa
                 <span key={market.market}>{market.displayName}</span>
               ))}
             </div>
+            <div className={styles.intervalPlots} aria-label="Intervalos de confianca em escala de zero a cem por cento">
+              {match.availableMarkets.slice(0, 2).flatMap((market) => market.selections.slice(0, 3).map((selection) => (
+                <div className={styles.intervalPlot} key={`${market.market}-${selection.key}`}>
+                  <div className={styles.plotLabel}><span>{market.displayName} · {selection.label}</span><b>{selection.probability}%</b></div>
+                  <div className={styles.plotScale} role="img" aria-label={`${selection.probability} por cento; intervalo de ${selection.uncertainty.lower} a ${selection.uncertainty.upper} por cento`}>
+                    <span className={styles.plotInterval} style={{ left: `${selection.uncertainty.lower}%`, width: `${Math.max(0, selection.uncertainty.upper - selection.uncertainty.lower)}%` }} />
+                    <span className={styles.plotPoint} style={{ left: `${selection.probability}%` }} />
+                  </div>
+                  <div className={styles.plotAxis}><span>0%</span><span>50%</span><span>100%</span></div>
+                  <small>IC 95% Wilson · n={market.sampleSize}</small>
+                </div>
+              ))) }
+            </div>
+            <div className={styles.ignoredList}>
+              {match.availableMarkets.slice(0, 3).map((market) => (
+                <div key={`explain-${market.market}`}>
+                  <b>{market.displayName}: segmento {market.sourceSegment}</b>
+                  <span>{market.sampleSize} observações · período {market.period.from} a {market.period.to}</span>
+                </div>
+              ))}
+            </div>
           </>
         )}
+
+        {match.limitations && match.limitations.length > 0 && <>
+          <div className={styles.sectionLabel}>Limitações</div>
+          <div className={styles.ignoredList}>{match.limitations.map((limitation) => <div key={limitation}><span>{limitation}</span></div>)}</div>
+        </>}
 
         {match.ignoredMarkets && match.ignoredMarkets.length > 0 && (
           <>
@@ -166,6 +217,7 @@ export default function AnalysisPanel({ match, aiOn, open, onClose }: AnalysisPa
                 <div className={styles.evidenceTrack}>
                   <div style={fillStyle} />
                 </div>
+                <div className={styles.plotAxis}><span>0%</span><span>50%</span><span>100%</span></div>
               </div>
             )
           })}
@@ -198,4 +250,13 @@ function formatUpdatedAt(value: string | undefined) {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function shortVersion(value: string | undefined) {
+  if (!value) return 'n/d'
+  return value.length > 12 ? value.slice(0, 12) : value
+}
+
+function formatPeriod(value: { from: string; to: string } | undefined) {
+  return value ? `${value.from} – ${value.to}` : 'n/d'
 }

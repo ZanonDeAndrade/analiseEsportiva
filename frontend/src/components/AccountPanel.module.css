@@ -7,10 +7,11 @@
   padding: 20px;
   background: rgb(0 0 0 / 70%);
 }
+.backdropPage { position: static; grid-column: 2 / -1; display: block; width: 100%; min-width: 0; overflow: auto; padding: 34px clamp(20px, 4vw, 58px) 80px; background: transparent; }
 
 .panel {
   width: min(680px, 100%);
-  max-height: 90vh;
+  max-height: 90dvh;
   overflow: auto;
   padding: 24px;
   border: 1px solid var(--border-mid);
@@ -19,26 +20,113 @@
   color: var(--text);
 }
 
+/* A página compartilha o componente com o modal. A maior especificidade impede
+   que a largura fixa do modal limite o workspace de conta. */
+.panel.panelPage {
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .panel header,
 .session,
 .dangerActions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
-.panel h2 { margin: 0 0 5px; }
+.panel header > div,
+.session > div,
+.acceptance > div { min-width: 0; }
+.panel h2 { margin: 0 0 5px; line-height: 1.25; }
 .panel h3 { margin: 24px 0 10px; }
 .panel small, .help, .session span { color: var(--muted); }
 .sessions { display: grid; gap: 8px; }
+.acceptances { display: grid; gap: 8px; }
 .session { padding: 12px; border: 1px solid var(--border-soft); border-radius: 9px; background: var(--bg-card); }
+.acceptance { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid var(--border-soft); border-radius: 9px; background: var(--bg-card); }
+.acceptance div { display: grid; gap: 4px; }
+.acceptanceActions { justify-items: end; overflow-wrap: anywhere; }
+.acceptanceActions a { color: var(--accent-2); font-size: 11px; }
+.subscription { display: grid; gap: 7px; padding: 14px; border: 1px solid var(--border-soft); border-radius: 9px; background: var(--bg-card); color: var(--text-2); }
+.subscription button { justify-self: start; margin-top: 6px; background: var(--red); }
+.success { padding: 10px; border-radius: 8px; background: rgb(47 189 107 / 12%); color: var(--green-2); line-height: 1.5; }
 .session div { display: grid; gap: 4px; }
 .panel label { display: grid; gap: 7px; margin: 14px 0 8px; color: var(--text-2); }
 .panel input { border: 1px solid var(--border-mid); border-radius: 8px; padding: 10px; background: var(--bg-input); color: var(--text); }
-.panel button { border: 0; border-radius: 8px; padding: 8px 12px; background: var(--accent); color: white; cursor: pointer; }
+.panel button { max-width: 100%; border: 0; border-radius: 8px; padding: 8px 12px; background: var(--accent); color: white; line-height: 1.3; white-space: normal; cursor: pointer; }
+.panel > button { margin: 0 8px 8px 0; }
 .panel button:disabled { opacity: .5; cursor: not-allowed; }
 .panel .secondary { background: var(--bg-input); }
 .dangerActions { justify-content: flex-start; margin-top: 15px; }
 .dangerActions button { background: var(--red); }
-.error { padding: 10px; border-radius: 8px; background: rgb(224 82 78 / 15%); color: var(--red-2); }
+.error { margin: 14px 0; padding: 10px; border-radius: 8px; background: rgb(224 82 78 / 15%); color: var(--red-2); }
+
+.accountGrid,
+.accountSection { display: contents; }
+.actionRow { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.panelPage > header {
+  align-items: flex-end;
+  margin-bottom: 22px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.panelPage h2 { font-size: clamp(28px, 3vw, 40px); }
+.panelPage .accountGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.panelPage .accountSection {
+  display: block;
+  min-width: 0;
+  padding: clamp(20px, 2vw, 28px);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  background: var(--bg-panel);
+}
+.panelPage .accountSection > h3 { margin: 0 0 12px; font-size: clamp(19px, 1.5vw, 23px); }
+.panelPage .wideSection { grid-column: 1 / -1; }
+.panelPage .securityFootnote {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 2px 4px;
+}
+.panelPage .accountSection > button { margin: 0 8px 8px 0; }
+
+@media (max-width: 900px) {
+  .backdropPage { padding: 24px 16px 72px; }
+  .panelPage .accountGrid { grid-template-columns: 1fr; }
+  .panelPage .wideSection { grid-column: auto; }
+}
+
+@media (max-width: 780px) {
+  .backdropPage { grid-column: 1; }
+}
+
+@media (max-width: 640px) {
+  .backdrop { align-items: start; padding: 12px; }
+  .backdropPage { padding: 20px 12px 72px; }
+  .panel { max-height: calc(100dvh - 24px); padding: 18px; }
+  .panelPage { max-height: none; }
+  .panelPage > header { align-items: stretch; }
+  .panelPage .accountSection { padding: 18px; }
+  .panelPage .securityFootnote { padding: 0; }
+  .panel header, .session, .acceptance { align-items: flex-start; flex-direction: column; }
+  .panel header > button, .session > button { width: 100%; }
+  .acceptanceActions { width: 100%; justify-items: stretch; }
+  .acceptanceActions button { width: 100%; }
+  .panel > button { width: 100%; margin-right: 0; }
+  .dangerActions { display: grid; grid-template-columns: 1fr; }
+  .dangerActions button { width: 100%; }
+}

@@ -1,0 +1,27 @@
+.spinner {
+  display: inline-block;
+  box-sizing: border-box;
+  border-style: solid;
+  border-color: var(--border-strong, rgba(255, 255, 255, 0.16));
+  border-top-color: var(--signal, #ff8c42);
+  border-radius: 50%;
+  animation: spinner-rotate 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Um loader e movimento funcional: precisa seguir girando mesmo com movimento
+   reduzido, senao parece travado. O theme.css zera animacao global com
+   !important; o seletor de classe aqui tem especificidade maior e vence,
+   mantendo o giro (mais lento). */
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 1.6s !important;
+    animation-iteration-count: infinite !important;
+  }
+}

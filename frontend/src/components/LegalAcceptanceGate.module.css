@@ -1,0 +1,29 @@
+.screen { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 20px; background: var(--bg-app); color: var(--text); }
+.dialog { width: min(720px, 100%); max-height: calc(100dvh - 40px); overflow: auto; scrollbar-gutter: stable; padding: 28px; border: 1px solid var(--border-mid); border-radius: 16px; background: var(--bg-panel); box-shadow: 0 24px 80px rgb(0 0 0 / 40%); }
+.brand { font-size: 18px; font-weight: 800; }
+.brand span { color: var(--accent); }
+.dialog h1 { margin: 18px 0 10px; font-size: 28px; }
+.dialog p { color: var(--text-2); line-height: 1.55; }
+.draft { margin-top: 18px; padding: 10px 12px; border: 1px solid rgb(224 82 78 / 40%); border-radius: 8px; background: rgb(224 82 78 / 9%); color: #ffc0be; font-size: 11px; font-weight: 800; line-height: 1.45; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.dialog button { border: 0; border-radius: 9px; padding: 11px 16px; background: var(--accent); color: white; font-weight: 800; cursor: pointer; }
+.dialog button:disabled { opacity: .45; cursor: not-allowed; }
+.dialog > button { margin-top: 18px; }
+.dialog .secondary { background: var(--bg-input); }
+.dialog small { display: block; margin-top: 14px; color: var(--muted); line-height: 1.45; }
+.check { display: flex; align-items: flex-start; gap: 12px; margin: 16px 0; color: var(--text-2); font-size: 13px; line-height: 1.55; }
+.check input { flex: 0 0 auto; width: 19px; height: 19px; margin-top: 2px; accent-color: var(--accent); }
+.check a { color: var(--accent-2); }
+.error { padding: 10px 12px; border-radius: 8px; background: rgb(224 82 78 / 14%); color: var(--red-2) !important; }
+.changes { padding: 12px; border: 1px solid var(--border-mid); border-radius: 8px; background: var(--bg-card); }
+.changes p { margin: 5px 0 0; font-size: 12px; }
+
+@media (max-width: 600px) {
+  .screen { padding: 12px; place-items: start center; }
+  .dialog { max-height: calc(100dvh - 24px); padding: 20px; border-radius: 14px; }
+  .dialog h1 { margin-top: 16px; font-size: clamp(23px, 7vw, 28px); line-height: 1.12; }
+  .check { gap: 10px; margin: 18px 0; }
+  .actions { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .actions button,
+  .dialog > button { width: 100%; }
+}

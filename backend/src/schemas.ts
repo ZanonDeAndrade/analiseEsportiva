@@ -76,6 +76,7 @@ export interface SegmentModel {
   positiveCounts: Record<string, number>
   totalCounts: Record<string, number>
   reason?: string
+  period?: { from: string; to: string }
 }
 
 export interface MarketModel {
@@ -101,6 +102,17 @@ export interface BetIntelModel {
   competitions: string[]
   teamProfiles: Record<string, TeamProfile>
   markets: Record<MarketId, MarketModel>
+  provenance: ModelProvenance
+}
+
+export interface ModelProvenance {
+  codeVersion: string
+  featureSetVersion: string
+  modelSchemaVersion: string
+  hyperparameters: { minRows: number; seed: number }
+  trainingPeriod: { from: string; to: string }
+  artifactFingerprint: string
+  runtime: { node: string; platform: string; architecture: string }
 }
 
 export interface TeamProfile {
@@ -160,6 +172,7 @@ export interface PredictionSelection {
   key: string
   label: string
   probability: number
+  uncertainty: { lower: number; upper: number; level: 0.95; method: 'wilson' }
 }
 
 export interface PredictionMarket {
@@ -169,6 +182,9 @@ export interface PredictionMarket {
   sourceSegment: string
   sampleSize: number
   confidence: PredictionConfidence
+  period: { from: string; to: string }
+  modelVersion: string
+  limitations: string[]
   selections: PredictionSelection[]
 }
 
@@ -179,6 +195,12 @@ export interface PredictionResponse {
   sampleSize: number
   confidence: PredictionConfidence
   ethicalNotice: string
+  modelVersion: string
+  datasetVersion?: string
+  codeVersion: string
+  featureSetVersion: string
+  period: { from: string; to: string }
+  limitations: string[]
   availableMarkets: PredictionMarket[]
   ignoredMarkets: IgnoredMarket[]
 }
@@ -190,14 +212,114 @@ export interface EvaluationMetric {
   selectionAccuracy: number
   brierScore: number
   coverage: number
+  logLoss: number
+  baselines: EvaluationBaseline[]
+  brierDecomposition: BrierDecomposition
+  calibration: CalibrationBin[]
+  expectedCalibrationError: number
+  uncertainty: {
+    brierScore: ConfidenceInterval
+    selectionAccuracy: ConfidenceInterval
+  }
+}
+
+export interface EvaluationBaseline {
+  name: 'climatology' | 'uniform'
+  brierScore: number
+  logLoss: number
+  sampleSize: number
+}
+
+export interface CalibrationBin {
+  lower: number
+  upper: number
+  meanPredicted: number
+  observedRate: number
+  sampleSize: number
+}
+
+export interface BrierDecomposition {
+  reliability: number
+  resolution: number
+  uncertainty: number
+  recomposed: number
+}
+
+export interface ConfidenceInterval {
+  lower: number
+  upper: number
+  level: 0.95
+  method: 'wilson' | 'bootstrap'
+}
+
+export interface TemporalPartition {
+  rows: number
+  from: string
+  to: string
+}
+
+export interface CompetitionSplitCount {
+  competition: string
+  total: number
+  train: number
+  validation: number
+  test: number
+}
+
+export interface TemporalSplitStrategyReport {
+  strategy: 'per_competition_temporal'
+  trainRatio: number
+  validationRatio: number
+  testRatio: number
+  discardedRows: number
+  train: TemporalPartition
+  test: TemporalPartition
+  competitions: CompetitionSplitCount[]
+}
+
+export interface EvaluationTrace {
+  runId: string
+  seed: number
+  codeVersion: string
+  datasetVersionId?: string
+  modelVersionId?: string
+  featureSetVersion: string
+  modelSchemaVersion: string
+  metricsSchemaVersion: string
+  hyperparameters: Record<string, number | string | boolean>
+  runtime: { node: string; platform: string; architecture: string }
+}
+
+export interface DriftReport {
+  status: 'stable' | 'warning' | 'critical' | 'dados_insuficientes'
+  sampleSize: { reference: number; current: number }
+  populationStabilityIndex?: number
+  missingnessDelta: { corners: number; cards: number }
+  limitations: string[]
+}
+
+export interface PerformanceDriftReport {
+  status: 'stable' | 'improved' | 'degraded' | 'dados_insuficientes'
+  comparedMarkets: number
+  currentMeanBrier?: number
+  referenceMeanBrier?: number
+  delta?: number
+  limitations: string[]
 }
 
 export interface EvaluationReport {
   generatedAt: string
   trainRows: number
+  validationRows: number
   testRows: number
+  partitions: { train: TemporalPartition; validation: TemporalPartition; test: TemporalPartition }
+  split: TemporalSplitStrategyReport
   metrics: EvaluationMetric[]
   ignoredMarkets: IgnoredMarket[]
+  trace: EvaluationTrace
+  drift: DriftReport
+  performanceDrift: PerformanceDriftReport
+  promotion: PromotionDecision
 }
 
 export interface BacktestReport {
@@ -206,6 +328,17 @@ export interface BacktestReport {
   evaluatedRows: number
   metrics: EvaluationMetric[]
   ignoredPredictions: number
+  period: { from: string; to: string }
+  trace: EvaluationTrace
+  drift: DriftReport
+}
+
+export interface PromotionDecision {
+  decision: 'promote' | 'reject' | 'hold'
+  reasons: string[]
+  evaluatedMarkets: number
+  candidateMeanBrier?: number
+  championMeanBrier?: number
 }
 
 export interface FixtureRecord {
@@ -222,8 +355,13 @@ export interface FixtureRecord {
   status: string
   homeTeam: string
   awayTeam: string
+  homeTeamExternalId?: string
+  awayTeamExternalId?: string
   sourceProvider: string
   updatedAt: string
+  normalizedStatus?: string
+  freshness?: 'current' | 'stale' | 'missing_timestamp'
+  freshUntil?: string
   isFallback?: boolean
 }
 
@@ -245,10 +383,11 @@ export interface SyncReport {
   resultRows: number
   acceptedRows: number
   rejectedRows: number
-    duplicateRows: number
-    correctedResults: number
+  duplicateRows: number
+  correctedResults: number
   usedApiFootball: boolean
   usedFootballData: boolean
+  usedFootballDataOrg: boolean
   simulated: boolean
   importIssues: Array<{ source: string; row: number | string; code: string; message: string }>
   warnings: string[]

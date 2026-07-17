@@ -291,6 +291,7 @@ export class PostgresIdentityRepository implements IdentityRepository {
           status: 'disabled',
           disabledAt: now,
           deletedAt: now,
+          providerSubject: `deleted|${createHash('sha256').update(actor.subject).digest('hex')}`,
           email: null,
           emailNormalized: null,
           emailVerified: false,

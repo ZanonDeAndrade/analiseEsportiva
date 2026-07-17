@@ -9,6 +9,7 @@ export const QueueNames = {
   EXPORT: 'export',
   NOTIFICATION: 'notification',
   BILLING_RECONCILIATION: 'billing-reconciliation',
+  MAINTENANCE: 'maintenance',
 } as const
 
 export type QueueName = (typeof QueueNames)[keyof typeof QueueNames]
@@ -22,6 +23,7 @@ export const SystemJobTypes = {
   EXPORT: 'export',
   NOTIFICATION: 'notification',
   BILLING_RECONCILIATION: 'billing-reconciliation',
+  PRIVACY_RETENTION: 'privacy-retention',
 } as const
 
 export type SystemJobType = (typeof SystemJobTypes)[keyof typeof SystemJobTypes]
@@ -122,5 +124,6 @@ export function queueForJobType(type: SystemJobType): QueueName {
   if (type === SystemJobTypes.BACKTEST) return QueueNames.BACKTEST
   if (type === SystemJobTypes.EXPORT) return QueueNames.EXPORT
   if (type === SystemJobTypes.NOTIFICATION) return QueueNames.NOTIFICATION
-  return QueueNames.BILLING_RECONCILIATION
+  if (type === SystemJobTypes.BILLING_RECONCILIATION) return QueueNames.BILLING_RECONCILIATION
+  return QueueNames.MAINTENANCE
 }

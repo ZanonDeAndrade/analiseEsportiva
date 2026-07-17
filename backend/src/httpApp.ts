@@ -28,6 +28,12 @@ import { legacyRoutes } from './interfaces/http/fastify/routes/legacy.js'
 import { observabilityRoutes } from './interfaces/http/fastify/routes/observability.js'
 import { organizationRoutes } from './interfaces/http/fastify/routes/organizations.js'
 import { sportsRoutes } from './interfaces/http/fastify/routes/sports.js'
+import { legalRoutes } from './interfaces/http/fastify/routes/legal.js'
+import { workspaceRoutes } from './interfaces/http/fastify/routes/workspace.js'
+import { privacyRoutes } from './interfaces/http/fastify/routes/privacy.js'
+import { supportRoutes } from './interfaces/http/fastify/routes/support.js'
+import { PrivacyCoordinator } from './application/privacyCoordinator.js'
+import type { PrivateCachePurger, PrivateObjectStorage } from './application/ports/privacy.js'
 import './interfaces/http/fastify/types.js'
 
 export interface HttpServerDependencies {
@@ -51,11 +57,20 @@ export interface HttpServerDependencies {
   readinessTimeoutMs?: number
   trustProxyHops?: number
   metricsBearerToken?: string
+  platformAdminSubjects?: string[]
+  privateObjectStorage?: PrivateObjectStorage
+  privateCachePurger?: PrivateCachePurger
 }
 
 export function createBetIntelHttpServer(
   dependencies: HttpServerDependencies,
 ): FastifyInstance {
+  const privacy = new PrivacyCoordinator(
+    dependencies.repositories.privacy,
+    dependencies.identityService,
+    dependencies.privateObjectStorage,
+    dependencies.privateCachePurger,
+  )
   const environment = dependencies.environment ?? process.env.NODE_ENV ?? 'development'
   const app = Fastify({
     trustProxy: environment === 'staging' || environment === 'production'
@@ -141,6 +156,7 @@ export function createBetIntelHttpServer(
   void app.register(authenticationPlugin, {
     identityService: dependencies.identityService,
     requestIpHashKey: dependencies.requestIpHashKey,
+    platformAdminSubjects: dependencies.platformAdminSubjects,
   })
   void app.register(tenancyPlugin)
   void app.register(authorizationPlugin)
@@ -157,13 +173,25 @@ export function createBetIntelHttpServer(
         || environment === 'production',
       dependencyTimeoutMs: dependencies.readinessTimeoutMs ?? 1_500,
     })
-    await v1.register(accountRoutes, { identityService: dependencies.identityService })
+    await v1.register(accountRoutes, { identityService: dependencies.identityService, privacy })
     await v1.register(organizationRoutes, {
       organizationService: dependencies.organizationService,
     })
     await v1.register(sportsRoutes, { repositories: dependencies.repositories })
-    await v1.register(adminRoutes, { jobs: dependencies.repositories.jobs })
+    await v1.register(adminRoutes, {
+      jobs: dependencies.repositories.jobs,
+      sports: dependencies.repositories.sports,
+      models: dependencies.repositories.models,
+      operations: dependencies.repositories.operations,
+    })
     await v1.register(billingRoutes, { billingPortal: dependencies.billingPortal })
+    await v1.register(legalRoutes, {
+      legal: dependencies.repositories.legal,
+      requestIpHashKey: dependencies.requestIpHashKey,
+    })
+    await v1.register(workspaceRoutes, { repositories: dependencies.repositories })
+    await v1.register(privacyRoutes, { privacy, operations: dependencies.repositories.operations })
+    await v1.register(supportRoutes, { operations: dependencies.repositories.operations })
     await v1.register(observabilityRoutes, {
       connection: dependencies.connection,
       metricsBearerToken: dependencies.metricsBearerToken,

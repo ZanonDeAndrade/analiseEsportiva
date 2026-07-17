@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart LR
-  A["API-Football league=1 season=2026"] --> B["backend/src/providers"]
+  A["APIs de dados de futebol"] --> B["backend/src/providers"]
   C["Football-Data CSVs"] --> B
   B --> D[("PostgreSQL sports")]
   D --> E["featureEngineering"]
@@ -59,6 +59,10 @@ Arquivos em `backend/data` e `backend/artifacts` sao aceitos somente pelo import
 
 ## Atualidade de Fixtures
 
-`GET /v1/fixtures` retorna apenas jogos com `isoDate` maior que o horario atual. Assim, quando chega o horario de inicio da partida, ela deixa de aparecer. O frontend consulta o backend a cada 30 segundos e tambem faz poda local a cada 5 segundos para evitar que uma partida permaneça visivel entre duas consultas.
+`GET /v1/fixtures` retorna apenas jogos com `isoDate` maior que o horario atual. O
+frontend usa cache curto, permite atualização manual e revalida ao reconectar ou ao
+retornar à aba depois da janela de frescor. Também agenda uma atualização para o
+próximo início conhecido. Não existe polling agressivo nem calendário fictício como
+fallback.
 
 Quando `API_FOOTBALL_KEY` esta configurada, o backend pode atualizar fixtures reais. Falha de provider e relatada sem gerar fixtures simuladas.

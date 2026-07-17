@@ -23,6 +23,9 @@ Cobertura funcional:
 - Autenticacao, RBAC, rate limit, payload excessivo, content-type e timeout.
 - Erros internos sem stack/mensagem sensivel e contrato OpenAPI.
 - Feature flag das rotas antigas e jobs administrativos sem trabalho pesado no handler.
+- CLIs de pipeline em modo offline (`train`/`evaluate`/`backtest` com `--csv`, sem `DATABASE_URL`) e falha amigavel sem stack quando o modo PostgreSQL e usado sem configuracao.
+- Validacao centralizada de placares (FTHG/FTAG): rejeita valores nao inteiros, negativos ou fora de `[0, MAX_GOALS_PER_TEAM]` com motivo estruturado (`invalid_home_score`, `invalid_away_score`, `score_out_of_range`, `fractional_score`).
+- Divisao temporal por competicao (`temporalSplit`): dataset fora de ordem, varias competicoes, competicao com poucas linhas, datas em formatos mistos, ausencia de sobreposicao treino/validacao/teste e determinismo.
 
 Testes PostgreSQL reais:
 
@@ -43,7 +46,7 @@ npm run build
 
 Esse comando compila TypeScript do `frontend/` e do `backend/`, e gera o build Vite em `frontend/dist`.
 
-## Validacao de Pipeline
+## Validacao de Pipeline (PostgreSQL)
 
 ```bash
 npm run backend:sync
@@ -58,6 +61,30 @@ Resultados esperados:
 - Train cria `model.model_versions` e `model.model_segments`.
 - Evaluate e backtest criam `model.evaluations`.
 - Nenhum comando grava estado persistente em `backend/data` ou `backend/artifacts`.
+
+## Validacao de Pipeline (offline, sem PostgreSQL)
+
+Reproduz treino, avaliacao e backtest a partir de um CSV, sem PostgreSQL, Redis
+ou Auth0:
+
+```bash
+npm run backend:pipeline:offline
+npm run backend:train:offline
+npm run backend:evaluate:offline
+npm run backend:backtest:offline
+```
+
+Resultados esperados:
+
+- Cada comando carrega o CSV (`--csv`, padrao `backend/data/combined-results.csv`),
+  constroi as features, treina o modelo e imprime um resumo no terminal.
+- `--output <arquivo.json>` salva o modelo/avaliacao/backtest; sem ele, nada e
+  gravado (o modo offline nao escreve em `backend/artifacts`).
+- Nenhuma conexao PostgreSQL e inicializada; `DATABASE_URL` nao e necessaria.
+- As datas do CSV sao normalizadas para ISO 8601 antes da divisao temporal e do
+  backtest, aceitando ISO e `DD/MM/AAAA` no mesmo arquivo.
+- Sem `--csv`, o comando usa PostgreSQL e, faltando `DATABASE_URL`, encerra com
+  mensagem orientando o modo offline, sem stack trace.
 
 ## Analise Critica
 

@@ -20,8 +20,18 @@ const repositories = createPostgresRepositories(connection)
 const intervalMs = schedulerIntervalMs()
 let running = false
 
-await scheduleIngestion()
-const timer = setInterval(() => void scheduleIngestion(), intervalMs)
+await scheduleJobs()
+const timer = setInterval(() => void scheduleJobs(), intervalMs)
+
+async function scheduleJobs() {
+  await scheduleIngestion()
+  const bucket = new Date().toISOString().slice(0, 10)
+  await repositories.jobs.enqueueScheduledSystemJob(
+    SystemJobTypes.PRIVACY_RETENTION,
+    `scheduled:${bucket}`,
+    { trigger: 'scheduler', bucket, containsPii: false },
+  )
+}
 
 async function scheduleIngestion() {
   if (running) return

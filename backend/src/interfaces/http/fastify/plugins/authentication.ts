@@ -6,19 +6,24 @@ import '../../fastify/types.js'
 export const authenticationPlugin = fp<{
   identityService: IdentityService
   requestIpHashKey: string
+  platformAdminSubjects?: string[]
 }>(async (app, options) => {
   app.decorateRequest('actor', null)
   app.addHook('onRequest', async (request) => {
     if (request.routeOptions.config.public === true) return
-    request.actor = await options.identityService.authenticate(request.headers.authorization, {
+    const actor = await options.identityService.authenticate(request.headers.authorization, {
       requestId: request.id,
       userAgent: headerValue(request.headers['user-agent']),
       ipHash: hashRemoteAddress(request.ip, options.requestIpHashKey),
     })
+    request.actor = {
+      ...actor,
+      platformAdmin: new Set(options.platformAdminSubjects ?? []).has(actor.subject),
+    }
   })
 }, { name: 'authentication' })
 
-function hashRemoteAddress(value: string | undefined, key: string) {
+export function hashRemoteAddress(value: string | undefined, key: string) {
   if (!value) return undefined
   return createHmac('sha256', key).update(value).digest('hex')
 }

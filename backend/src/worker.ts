@@ -72,6 +72,7 @@ const processors = createJobProcessors({
   quotas: {
     apiFootball: providerQuotaConfig('api-football'),
     footballData: providerQuotaConfig('football-data'),
+    footballDataOrg: providerQuotaConfig('football-data-org'),
   },
   apiFootballMinimumGapMs: Number(process.env.BETINTEL_API_MIN_GAP_MS ?? 6_500),
 })
@@ -108,6 +109,7 @@ function selectedQueues(): QueueName[] {
     'export',
     'notification',
     'billing-reconciliation',
+    'maintenance',
   ] as QueueName[]))
   for (const queue of values) {
     if (!allowed.has(queue as QueueName)) throw new Error(`WORKER_QUEUES contem fila invalida: ${queue}`)

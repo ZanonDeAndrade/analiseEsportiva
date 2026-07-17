@@ -26,7 +26,7 @@ x-app-environment: &app-environment
   ENABLE_LEGACY_HTTP_ROUTES: "false"
   WORKER_DATABASE_URL: postgresql://betintel:betintel_local@postgres:5432/betintel
   SCHEDULER_DATABASE_URL: postgresql://betintel:betintel_local@postgres:5432/betintel
-  WORKER_QUEUES: ingestion,normalization,training,evaluation,backtest
+  WORKER_QUEUES: ingestion,normalization,training,evaluation,backtest,maintenance
   API_FOOTBALL_KEY: ${API_FOOTBALL_KEY:-}
 
 services:

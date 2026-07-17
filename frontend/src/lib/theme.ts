@@ -12,7 +12,6 @@ export const LEAGUE_COLOR: Record<LeagueId, string> = {
   LL: '#e0a92e',
   L1: '#4ec3e0',
   BUN: '#e0524e',
-  WC2026: '#ffffff',
 }
 
 export function dotColor(lg: LeagueId): string {

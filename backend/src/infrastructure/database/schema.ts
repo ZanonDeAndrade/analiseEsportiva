@@ -22,6 +22,7 @@ const utcTimestamp = (name: string) =>
 
 export const iam = pgSchema('iam')
 export const billing = pgSchema('billing')
+export const legal = pgSchema('legal')
 export const sports = pgSchema('sports')
 export const model = pgSchema('model')
 export const ops = pgSchema('ops')
@@ -213,6 +214,112 @@ export const sessionMetadata = iam.table(
   ],
 )
 
+export const legalDocumentType = legal.enum('document_type', [
+  'terms',
+  'privacy',
+  'risk',
+  'refund',
+  'acceptable_use',
+  'responsible_gaming',
+])
+export const legalChangeKind = legal.enum('change_kind', ['material', 'non_material'])
+export const legalAcceptancePurpose = legal.enum('acceptance_purpose', [
+  'signup',
+  'first_access',
+  'material_update',
+  'subscription',
+  'age_confirmation',
+  'marketing',
+])
+
+export const legalDocuments = legal.table(
+  'documents',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    type: legalDocumentType('type').notNull(),
+    version: text('version').notNull(),
+    title: text('title').notNull(),
+    contentHash: text('content_hash').notNull(),
+    publishedAt: utcTimestamp('published_at'),
+    effectiveAt: utcTimestamp('effective_at'),
+    documentUrl: text('document_url').notNull(),
+    acceptanceGroup: text('acceptance_group').notNull(),
+    changeKind: legalChangeKind('change_kind').notNull().default('material'),
+    changeSummary: text('change_summary').notNull(),
+    isActive: boolean('is_active').notNull().default(false),
+    publishedByUserId: uuid('published_by_user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
+    createdAt: utcTimestamp('created_at').notNull().defaultNow(),
+    updatedAt: utcTimestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    unique('legal_documents_type_version_uq').on(table.type, table.version),
+    unique('legal_documents_type_hash_uq').on(table.type, table.contentHash),
+    uniqueIndex('legal_documents_one_active_type_uidx')
+      .on(table.type)
+      .where(sql`${table.isActive} = true`),
+    index('legal_documents_type_created_idx').on(table.type, table.createdAt),
+    check('legal_documents_hash_ck', sql`${table.contentHash} ~ '^[a-f0-9]{64}$'`),
+    check('legal_documents_version_not_blank_ck', sql`length(btrim(${table.version})) > 0`),
+    check('legal_documents_acceptance_group_not_blank_ck', sql`length(btrim(${table.acceptanceGroup})) > 0`),
+  ],
+)
+
+export const legalAcceptances = legal.table(
+  'acceptances',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    evidenceEventId: uuid('evidence_event_id').notNull(),
+    idempotencyKey: text('idempotency_key').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'restrict' }),
+    legalDocumentId: uuid('legal_document_id')
+      .notNull()
+      .references(() => legalDocuments.id, { onDelete: 'restrict' }),
+    documentType: legalDocumentType('document_type').notNull(),
+    documentVersion: text('document_version').notNull(),
+    acceptanceGroup: text('acceptance_group').notNull(),
+    acceptancePurpose: legalAcceptancePurpose('acceptance_purpose').notNull(),
+    acceptedAt: utcTimestamp('accepted_at').notNull().defaultNow(),
+    ipHash: text('ip_hash'),
+    userAgent: text('user_agent'),
+    contentHash: text('content_hash').notNull(),
+    documentUrl: text('document_url').notNull(),
+    evidenceMetadata: jsonb('evidence_metadata')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    revokedAt: utcTimestamp('revoked_at'),
+    createdAt: utcTimestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    unique('legal_acceptances_idempotency_document_uq').on(
+      table.userId,
+      table.organizationId,
+      table.idempotencyKey,
+      table.legalDocumentId,
+    ),
+    index('legal_acceptances_user_created_idx').on(table.userId, table.createdAt),
+    index('legal_acceptances_organization_created_idx').on(table.organizationId, table.createdAt),
+    index('legal_acceptances_requirement_idx').on(
+      table.userId,
+      table.organizationId,
+      table.documentType,
+      table.acceptanceGroup,
+    ),
+    check('legal_acceptances_hash_ck', sql`${table.contentHash} ~ '^[a-f0-9]{64}$'`),
+    check(
+      'legal_acceptances_marketing_revocation_ck',
+      sql`${table.revokedAt} is null or ${table.acceptancePurpose} = 'marketing'`,
+    ),
+  ],
+)
+
 export const billingInterval = billing.enum('billing_interval', ['month', 'year'])
 export const subscriptionStatus = billing.enum('subscription_status', [
   'trialing',
@@ -378,11 +485,27 @@ export const webhookEvents = billing.table(
 
 export const fixtureStatus = sports.enum('fixture_status', [
   'scheduled',
+  'not_started',
   'live',
+  'halftime',
   'finished',
   'postponed',
   'cancelled',
+  'abandoned',
+  'extra_time',
+  'penalties',
   'unknown',
+])
+export const aliasReviewStatus = sports.enum('alias_review_status', [
+  'auto_accepted',
+  'pending',
+  'approved',
+  'rejected',
+])
+export const dataQualityStatus = sports.enum('data_quality_status', [
+  'open',
+  'resolved',
+  'rejected',
 ])
 
 export const competitions = sports.table(
@@ -391,6 +514,7 @@ export const competitions = sports.table(
     id: uuid('id').defaultRandom().primaryKey(),
     sourceProvider: text('source_provider').notNull(),
     externalId: text('external_id').notNull(),
+    canonicalKey: text('canonical_key').notNull(),
     name: text('name').notNull(),
     countryCode: text('country_code'),
     createdAt: utcTimestamp('created_at').notNull().defaultNow(),
@@ -398,7 +522,22 @@ export const competitions = sports.table(
   },
   (table) => [
     unique('competitions_source_external_uq').on(table.sourceProvider, table.externalId),
+    unique('competitions_canonical_key_uq').on(table.canonicalKey),
     index('competitions_name_idx').on(table.name),
+  ],
+)
+
+export const competitionExternalIds = sports.table(
+  'competition_external_ids',
+  {
+    competitionId: uuid('competition_id').notNull().references(() => competitions.id, { onDelete: 'cascade' }),
+    sourceProvider: text('source_provider').notNull(),
+    externalId: text('external_id').notNull(),
+    createdAt: utcTimestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.sourceProvider, table.externalId] }),
+    index('competition_external_ids_competition_idx').on(table.competitionId),
   ],
 )
 
@@ -411,6 +550,7 @@ export const seasons = sports.table(
       .references(() => competitions.id, { onDelete: 'restrict' }),
     sourceProvider: text('source_provider').notNull(),
     externalId: text('external_id').notNull(),
+    canonicalKey: text('canonical_key').notNull(),
     label: text('label').notNull(),
     startsOn: timestamp('starts_on', { mode: 'string' }),
     endsOn: timestamp('ends_on', { mode: 'string' }),
@@ -419,11 +559,26 @@ export const seasons = sports.table(
   },
   (table) => [
     unique('seasons_source_external_uq').on(table.sourceProvider, table.externalId),
+    unique('seasons_canonical_key_uq').on(table.canonicalKey),
     index('seasons_competition_label_idx').on(table.competitionId, table.label),
     check(
       'seasons_date_range_ck',
       sql`${table.startsOn} is null or ${table.endsOn} is null or ${table.endsOn} >= ${table.startsOn}`,
     ),
+  ],
+)
+
+export const seasonExternalIds = sports.table(
+  'season_external_ids',
+  {
+    seasonId: uuid('season_id').notNull().references(() => seasons.id, { onDelete: 'cascade' }),
+    sourceProvider: text('source_provider').notNull(),
+    externalId: text('external_id').notNull(),
+    createdAt: utcTimestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.sourceProvider, table.externalId] }),
+    index('season_external_ids_season_idx').on(table.seasonId),
   ],
 )
 
@@ -433,6 +588,7 @@ export const teams = sports.table(
     id: uuid('id').defaultRandom().primaryKey(),
     sourceProvider: text('source_provider').notNull(),
     externalId: text('external_id').notNull(),
+    canonicalKey: text('canonical_key').notNull(),
     canonicalName: text('canonical_name').notNull(),
     countryCode: text('country_code'),
     createdAt: utcTimestamp('created_at').notNull().defaultNow(),
@@ -440,6 +596,7 @@ export const teams = sports.table(
   },
   (table) => [
     unique('teams_source_external_uq').on(table.sourceProvider, table.externalId),
+    unique('teams_canonical_key_uq').on(table.canonicalKey),
     index('teams_canonical_name_idx').on(table.canonicalName),
   ],
 )
@@ -454,6 +611,9 @@ export const teamAliases = sports.table(
     sourceProvider: text('source_provider').notNull(),
     alias: text('alias').notNull(),
     normalizedAlias: text('normalized_alias').notNull(),
+    externalId: text('external_id').notNull(),
+    reviewStatus: aliasReviewStatus('review_status').notNull().default('auto_accepted'),
+    reviewedAt: utcTimestamp('reviewed_at'),
     createdAt: utcTimestamp('created_at').notNull().defaultNow(),
   },
   (table) => [
@@ -461,6 +621,7 @@ export const teamAliases = sports.table(
       table.sourceProvider,
       table.normalizedAlias,
     ),
+    unique('team_aliases_source_external_uq').on(table.sourceProvider, table.externalId),
     index('team_aliases_team_idx').on(table.teamId),
   ],
 )
@@ -486,6 +647,8 @@ export const fixtures = sports.table(
     rawStatus: text('raw_status'),
     round: text('round'),
     sourceUpdatedAt: utcTimestamp('source_updated_at'),
+    lastSeenAt: utcTimestamp('last_seen_at').notNull().defaultNow(),
+    freshUntil: utcTimestamp('fresh_until').notNull(),
     createdAt: utcTimestamp('created_at').notNull().defaultNow(),
     updatedAt: utcTimestamp('updated_at').notNull().defaultNow(),
   },
@@ -496,6 +659,7 @@ export const fixtures = sports.table(
     index('fixtures_home_starts_idx').on(table.homeTeamId, table.startsAt),
     index('fixtures_away_starts_idx').on(table.awayTeamId, table.startsAt),
     index('fixtures_status_starts_idx').on(table.status, table.startsAt),
+    index('fixtures_fresh_until_idx').on(table.freshUntil),
     check('fixtures_different_teams_ck', sql`${table.homeTeamId} <> ${table.awayTeamId}`),
   ],
 )
@@ -512,6 +676,13 @@ export const matchResults = sports.table(
     homeGoals: integer('home_goals').notNull(),
     awayGoals: integer('away_goals').notNull(),
     outcome: text('outcome').notNull(),
+    decision: text('decision').notNull().default('regulation'),
+    winner: text('winner').notNull().default('draw'),
+    homeExtraTimeGoals: integer('home_extra_time_goals'),
+    awayExtraTimeGoals: integer('away_extra_time_goals'),
+    homePenaltyGoals: integer('home_penalty_goals'),
+    awayPenaltyGoals: integer('away_penalty_goals'),
+    revision: integer('revision').notNull().default(1),
     recordedAt: utcTimestamp('recorded_at').notNull().defaultNow(),
     sourceUpdatedAt: utcTimestamp('source_updated_at'),
   },
@@ -523,6 +694,35 @@ export const matchResults = sports.table(
       sql`${table.homeGoals} >= 0 and ${table.awayGoals} >= 0`,
     ),
     check('match_results_outcome_ck', sql`${table.outcome} in ('H', 'D', 'A')`),
+    check('match_results_decision_ck', sql`${table.decision} in ('regulation', 'extra_time', 'penalties', 'administrative')`),
+    check('match_results_winner_ck', sql`${table.winner} in ('home', 'away', 'draw', 'undetermined')`),
+  ],
+)
+
+export const matchResultRevisions = sports.table(
+  'match_result_revisions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    fixtureId: uuid('fixture_id').notNull().references(() => fixtures.id, { onDelete: 'cascade' }),
+    revision: integer('revision').notNull(),
+    sourceProvider: text('source_provider').notNull(),
+    recordSha256: text('record_sha256').notNull(),
+    homeGoals: integer('home_goals').notNull(),
+    awayGoals: integer('away_goals').notNull(),
+    outcome: text('outcome').notNull(),
+    decision: text('decision').notNull(),
+    winner: text('winner').notNull(),
+    homeExtraTimeGoals: integer('home_extra_time_goals'),
+    awayExtraTimeGoals: integer('away_extra_time_goals'),
+    homePenaltyGoals: integer('home_penalty_goals'),
+    awayPenaltyGoals: integer('away_penalty_goals'),
+    sourceUpdatedAt: utcTimestamp('source_updated_at'),
+    recordedAt: utcTimestamp('recorded_at').notNull().defaultNow(),
+  },
+  (table) => [
+    unique('match_result_revisions_fixture_revision_uq').on(table.fixtureId, table.revision),
+    unique('match_result_revisions_fixture_hash_uq').on(table.fixtureId, table.recordSha256),
+    index('match_result_revisions_fixture_idx').on(table.fixtureId, table.recordedAt),
   ],
 )
 
@@ -555,7 +755,7 @@ export const matchStats = sports.table(
 )
 
 export const datasetStatus = model.enum('dataset_status', ['building', 'ready', 'failed'])
-export const modelStatus = model.enum('model_status', ['training', 'ready', 'failed', 'retired'])
+export const modelStatus = model.enum('model_status', ['training', 'challenger', 'ready', 'rejected', 'failed', 'retired'])
 export const segmentStatus = model.enum('segment_status', ['available', 'insufficient_data'])
 export const predictionStatus = model.enum('prediction_status', [
   'pending',
@@ -592,6 +792,62 @@ export const datasetVersions = model.table(
   ],
 )
 
+export const datasetRecords = model.table(
+  'dataset_records',
+  {
+    datasetVersionId: uuid('dataset_version_id').notNull().references(() => datasetVersions.id, { onDelete: 'cascade' }),
+    fixtureId: uuid('fixture_id').notNull().references(() => fixtures.id, { onDelete: 'restrict' }),
+    resultRevisionId: uuid('result_revision_id').references(() => matchResultRevisions.id, { onDelete: 'restrict' }),
+    sourceProvider: text('source_provider').notNull(),
+    externalId: text('external_id').notNull(),
+    recordSha256: text('record_sha256').notNull(),
+    recordPayload: jsonb('record_payload').$type<Record<string, unknown>>().notNull(),
+    createdAt: utcTimestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.datasetVersionId, table.sourceProvider, table.externalId] }),
+    index('dataset_records_fixture_idx').on(table.fixtureId),
+  ],
+)
+
+export const providerSnapshots = sports.table(
+  'provider_snapshots',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    datasetVersionId: uuid('dataset_version_id').notNull().references(() => datasetVersions.id, { onDelete: 'cascade' }),
+    provider: text('provider').notNull(),
+    policyReference: text('policy_reference').notNull(),
+    licenseReference: text('license_reference').notNull(),
+    contentSha256: text('content_sha256').notNull(),
+    recordCount: integer('record_count').notNull(),
+    fetchedAt: utcTimestamp('fetched_at').notNull().defaultNow(),
+  },
+  (table) => [
+    unique('provider_snapshots_dataset_provider_uq').on(table.datasetVersionId, table.provider),
+  ],
+)
+
+export const dataQualityIssues = sports.table(
+  'data_quality_issues',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    datasetVersionId: uuid('dataset_version_id').references(() => datasetVersions.id, { onDelete: 'set null' }),
+    issueType: text('issue_type').notNull(),
+    sourceProvider: text('source_provider').notNull(),
+    externalId: text('external_id'),
+    message: text('message').notNull(),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+    status: dataQualityStatus('status').notNull().default('open'),
+    resolution: jsonb('resolution').$type<Record<string, unknown>>(),
+    createdAt: utcTimestamp('created_at').notNull().defaultNow(),
+    resolvedAt: utcTimestamp('resolved_at'),
+  },
+  (table) => [
+    index('data_quality_issues_status_created_idx').on(table.status, table.createdAt),
+    index('data_quality_issues_provider_external_idx').on(table.sourceProvider, table.externalId),
+  ],
+)
+
 export const modelVersions = model.table(
   'model_versions',
   {
@@ -606,6 +862,11 @@ export const modelVersions = model.table(
     trainingRows: integer('training_rows').notNull(),
     payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
     payloadSha256: text('payload_sha256').notNull(),
+    codeVersion: text('code_version').notNull(),
+    featureSetVersion: text('feature_set_version').notNull(),
+    modelSchemaVersion: text('model_schema_version').notNull(),
+    hyperparameters: jsonb('hyperparameters').$type<Record<string, number | string | boolean>>().notNull(),
+    artifactFingerprint: text('artifact_fingerprint').notNull(),
     trainedAt: utcTimestamp('trained_at').notNull().defaultNow(),
     activatedAt: utcTimestamp('activated_at'),
     retiredAt: utcTimestamp('retired_at'),
@@ -614,6 +875,7 @@ export const modelVersions = model.table(
   (table) => [
     unique('model_versions_key_version_uq').on(table.modelKey, table.version),
     unique('model_versions_payload_hash_uq').on(table.payloadSha256),
+    unique('model_versions_artifact_fingerprint_uq').on(table.artifactFingerprint),
     uniqueIndex('model_versions_source_job_uidx')
       .on(table.sourceJobId)
       .where(sql`${table.sourceJobId} is not null`),
@@ -623,6 +885,23 @@ export const modelVersions = model.table(
       sql`${table.minRows} > 0 and ${table.trainingRows} >= 0`,
     ),
     check('model_versions_hash_ck', sql`${table.payloadSha256} ~ '^[a-f0-9]{64}$'`),
+  ],
+)
+
+export const modelPromotionEvents = model.table(
+  'model_promotion_events',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    modelVersionId: uuid('model_version_id').notNull().references(() => modelVersions.id, { onDelete: 'restrict' }),
+    previousChampionId: uuid('previous_champion_id').references(() => modelVersions.id, { onDelete: 'restrict' }),
+    action: text('action').notNull(),
+    decision: jsonb('decision').$type<Record<string, unknown>>().notNull(),
+    sourceJobId: uuid('source_job_id'),
+    createdAt: utcTimestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('model_promotion_events_model_created_idx').on(table.modelVersionId, table.createdAt),
+    check('model_promotion_events_action_ck', sql`${table.action} in ('promote', 'reject', 'rollback')`),
   ],
 )
 
@@ -728,6 +1007,103 @@ export const jobStatus = ops.enum('job_status', [
   'cancelled',
 ])
 export const operationalScope = ops.enum('operational_scope', ['system', 'organization'])
+
+export const savedQueries = ops.table(
+  'saved_queries',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'restrict' }),
+    createdByUserId: uuid('created_by_user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+    name: text('name').notNull(),
+    filters: jsonb('filters').$type<{ league: string; period: string; market: string; query: string }>().notNull(),
+    createdAt: utcTimestamp('created_at').notNull().defaultNow(),
+    updatedAt: utcTimestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    unique('saved_queries_organization_user_name_uq').on(table.organizationId, table.createdByUserId, table.name),
+    index('saved_queries_organization_updated_idx').on(table.organizationId, table.updatedAt),
+    check('saved_queries_name_ck', sql`char_length(${table.name}) between 2 and 80`),
+  ],
+)
+
+export const alertRules = ops.table(
+  'alert_rules',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'restrict' }),
+    createdByUserId: uuid('created_by_user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+    savedQueryId: uuid('saved_query_id').references(() => savedQueries.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    channel: text('channel').notNull().default('email'),
+    status: text('status').notNull().default('paused'),
+    deliveryState: text('delivery_state').notNull().default('not_configured'),
+    createdAt: utcTimestamp('created_at').notNull().defaultNow(),
+    updatedAt: utcTimestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('alert_rules_organization_updated_idx').on(table.organizationId, table.updatedAt),
+    check('alert_rules_name_ck', sql`char_length(${table.name}) between 2 and 80`),
+    check('alert_rules_channel_ck', sql`${table.channel} in ('email', 'in_app')`),
+    check('alert_rules_status_ck', sql`${table.status} in ('paused', 'active')`),
+    check('alert_rules_delivery_ck', sql`${table.deliveryState} in ('configured', 'not_configured', 'failed')`),
+  ],
+)
+
+export const supportTickets = ops.table(
+  'support_tickets',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'restrict' }),
+    createdByUserId: uuid('created_by_user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+    category: text('category').notNull(),
+    severity: text('severity').notNull(),
+    status: text('status').notNull().default('open'),
+    ownerTeam: text('owner_team').notNull().default('support'),
+    encryptedContent: text('encrypted_content').notNull(),
+    contentIv: text('content_iv').notNull(),
+    contentAuthTag: text('content_auth_tag').notNull(),
+    encryptionKeyVersion: text('encryption_key_version').notNull(),
+    slaDueAt: utcTimestamp('sla_due_at').notNull(),
+    resolvedAt: utcTimestamp('resolved_at'),
+    createdAt: utcTimestamp('created_at').notNull().defaultNow(),
+    updatedAt: utcTimestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('support_tickets_organization_status_idx').on(table.organizationId, table.status, table.createdAt),
+    index('support_tickets_creator_created_idx').on(table.createdByUserId, table.createdAt),
+    check('support_tickets_category_ck', sql`${table.category} in ('access','billing','data','privacy','security','technical','other')`),
+    check('support_tickets_severity_ck', sql`${table.severity} in ('sev1','sev2','sev3','sev4')`),
+    check('support_tickets_status_ck', sql`${table.status} in ('open','in_progress','waiting_customer','resolved')`),
+    check('support_tickets_owner_ck', sql`${table.ownerTeam} in ('support','engineering','security','billing','privacy')`),
+  ],
+)
+
+export const incidents = ops.table(
+  'incidents',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'restrict' }),
+    createdByUserId: uuid('created_by_user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+    severity: text('severity').notNull(),
+    status: text('status').notNull().default('investigating'),
+    ownerTeam: text('owner_team').notNull(),
+    encryptedContent: text('encrypted_content').notNull(),
+    contentIv: text('content_iv').notNull(),
+    contentAuthTag: text('content_auth_tag').notNull(),
+    encryptionKeyVersion: text('encryption_key_version').notNull(),
+    publicReference: text('public_reference'),
+    startedAt: utcTimestamp('started_at').notNull().defaultNow(),
+    resolvedAt: utcTimestamp('resolved_at'),
+    createdAt: utcTimestamp('created_at').notNull().defaultNow(),
+    updatedAt: utcTimestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('incidents_organization_status_idx').on(table.organizationId, table.status, table.createdAt),
+    check('incidents_severity_ck', sql`${table.severity} in ('sev1','sev2','sev3','sev4')`),
+    check('incidents_status_ck', sql`${table.status} in ('investigating','identified','monitoring','resolved')`),
+    check('incidents_owner_ck', sql`${table.ownerTeam} in ('support','engineering','security','billing','privacy')`),
+  ],
+)
 
 export const systemState = ops.table('system_state', {
   key: text('key').primaryKey(),

@@ -7,7 +7,7 @@
 3. CSV sem `HY`/`AY`/`HR`/`AR` deve retornar cartoes como `dados_insuficientes`.
 4. Payload API-Football com eventos de cartao deve gerar `HY`, `AY`, `HR`, `AR`.
 5. CSV Football-Data com odds deve ignorar colunas de odds.
-6. Predicao da Copa 2026 sem dados reais deve deixar cartoes/escanteios ignorados.
+6. Predicao sem colunas reais de cartoes/escanteios deve deixar esses mercados ignorados.
 
 ## Execucao
 

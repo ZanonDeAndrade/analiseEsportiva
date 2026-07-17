@@ -1,5 +1,6 @@
 .row {
   display: grid;
+  min-width: 740px;
   align-items: center;
   padding: 11px 20px;
   border-bottom: 1px solid var(--border-row);

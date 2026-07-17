@@ -1,0 +1,20 @@
+.warning {
+  padding: 14px 16px;
+  overflow-wrap: anywhere;
+  border: 1px solid rgb(224 169 46 / 35%);
+  border-radius: 10px;
+  background: rgb(224 169 46 / 9%);
+  color: var(--text-2);
+  line-height: 1.55;
+}
+
+.warning strong { color: #f2c85f; }
+.warning p { margin: 5px 0 0; }
+.liability { color: var(--muted-5); font-size: .9em; }
+.compact, .footer, .analysis { padding: 8px 10px; font-size: 11px; }
+.compact p, .footer p, .analysis p { margin: 0; }
+.analysis { border-color: rgb(255 106 26 / 25%); background: rgb(255 106 26 / 7%); }
+.full { border-left: 4px solid var(--amber); }
+.modal { border-color: rgb(255 106 26 / 45%); background: rgb(255 106 26 / 10%); }
+.checkbox { font-size: 12px; }
+.social { max-width: 720px; }

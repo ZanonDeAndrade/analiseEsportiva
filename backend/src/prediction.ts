@@ -12,8 +12,9 @@ import {
 } from './schemas.js'
 import { marketDefinitions } from './markets.js'
 import { teamKey } from './teamNames.js'
+import { wilsonInterval } from './mlops.js'
 
-export const ETHICAL_NOTICE = 'Analise baseada em dados historicos. Nao garante resultado.'
+export const ETHICAL_NOTICE = 'Estimativa probabilística educacional baseada em dados históricos; não é certeza nem recomendação de aposta ou financeira.'
 
 export function predictMarkets(model: BetIntelModel, request: PredictionRequest): PredictionResponse {
   const availableMarkets: PredictionResponse['availableMarkets'] = []
@@ -52,6 +53,8 @@ export function predictMarkets(model: BetIntelModel, request: PredictionRequest)
     }
 
     const probabilities = adjustedProbabilities(model, request, market, segment.probabilities)
+    const modelIdentity = model as BetIntelModel & { modelVersionId?: string; datasetVersionId?: string }
+    const limitations = marketLimitations(model, market, segment)
 
     availableMarkets.push({
       market,
@@ -60,9 +63,13 @@ export function predictMarkets(model: BetIntelModel, request: PredictionRequest)
       sourceSegment: segment.segmentKey,
       sampleSize: segment.sampleSize,
       confidence: confidenceFromSample(segment.sampleSize, model.minRows),
+      period: segment.period ?? model.provenance.trainingPeriod,
+      modelVersion: modelIdentity.modelVersionId ?? model.provenance.artifactFingerprint,
+      limitations,
       selections: definition.selections.map((selection) => ({
         ...selection,
         probability: probabilities[selection.key] ?? segment.probabilities[selection.key] ?? 0,
+        uncertainty: selectionUncertainty(segment, selection.key),
       })),
     })
   }
@@ -72,6 +79,12 @@ export function predictMarkets(model: BetIntelModel, request: PredictionRequest)
       ? Math.max(...availableMarkets.map((market) => market.sampleSize))
       : model.trainingRows
 
+  const modelIdentity = model as BetIntelModel & { modelVersionId?: string; datasetVersionId?: string }
+  const limitations = [
+    'Probabilidades refletem padrões históricos e podem mudar com novos dados.',
+    'Lesões, escalações e eventos não presentes nas features não são inferidos.',
+    'Mercados sem amostra suficiente permanecem como dados_insuficientes.',
+  ]
   return {
     game: request,
     sourceProvider: model.sourceProviders.length > 0 ? model.sourceProviders.join(', ') : 'local-cache',
@@ -79,9 +92,32 @@ export function predictMarkets(model: BetIntelModel, request: PredictionRequest)
     sampleSize: contextSampleSize,
     confidence: confidenceFromSample(contextSampleSize, model.minRows),
     ethicalNotice: ETHICAL_NOTICE,
+    modelVersion: modelIdentity.modelVersionId ?? model.provenance.artifactFingerprint,
+    datasetVersion: modelIdentity.datasetVersionId,
+    codeVersion: model.provenance.codeVersion,
+    featureSetVersion: model.provenance.featureSetVersion,
+    period: model.provenance.trainingPeriod,
+    limitations,
     availableMarkets,
     ignoredMarkets,
   }
+}
+
+function selectionUncertainty(segment: SegmentModel, key: string) {
+  const interval = wilsonInterval(segment.positiveCounts[key] ?? 0, segment.totalCounts[key] ?? segment.sampleSize)
+  return {
+    lower: round1(interval.lower * 100),
+    upper: round1(interval.upper * 100),
+    level: 0.95 as const,
+    method: 'wilson' as const,
+  }
+}
+
+function marketLimitations(model: BetIntelModel, market: MarketId, segment: SegmentModel) {
+  const limitations = [`Segmento ${segment.segmentKey} com ${segment.sampleSize} observações.`]
+  if (segment.sampleSize < model.minRows * 2) limitations.push('Amostra próxima ao mínimo; intervalo de incerteza tende a ser amplo.')
+  if (market === 'CARDS' || market === 'CORNERS') limitations.push('Cobertura depende de colunas opcionais fornecidas pelas fontes.')
+  return limitations
 }
 
 function adjustedProbabilities(
@@ -181,9 +217,11 @@ function adjustedOver(baseValue: number | undefined, home: TeamProfile | undefin
   const profileRate = blendRates([rate(home?.[key], home?.matches), rate(away?.[key], away?.matches)], base)
   const expectedGoals = expectedMatchGoals(home, away)
   const expectedAdjustment = line === 1.5 ? (expectedGoals - 2.1) * 9 : line === 2.5 ? (expectedGoals - 2.6) * 12 : (expectedGoals - 3.1) * 13
-  const weight = Math.min(0.45, (profileWeight(home) + profileWeight(away)) / 2)
+  // Partial pooling: taxas por time e o ajuste de gols encolhem para a taxa do
+  // segmento. Isso reduz sobreajuste em times com pouco historico.
+  const weight = Math.min(0.05, (profileWeight(home) + profileWeight(away)) / 2)
 
-  return clampPercent(base * (1 - weight) + profileRate * weight + expectedAdjustment)
+  return clampPercent(base * (1 - weight) + profileRate * weight + expectedAdjustment * weight)
 }
 
 function adjustedBtts(baseValue: number | undefined, home: TeamProfile | undefined, away: TeamProfile | undefined) {
@@ -195,9 +233,9 @@ function adjustedBtts(baseValue: number | undefined, home: TeamProfile | undefin
   const homeExpected = avgGoals(home, 'homeGoalsFor', 'homeMatches', 'goalsFor', 'matches')
   const awayExpected = avgGoals(away, 'awayGoalsFor', 'awayMatches', 'goalsFor', 'matches')
   const expectedAdjustment = (Math.min(homeExpected, awayExpected) - 1.05) * 14
-  const weight = Math.min(0.45, (profileWeight(home) + profileWeight(away)) / 2)
+  const weight = Math.min(0.05, (profileWeight(home) + profileWeight(away)) / 2)
 
-  return clampPercent(base * (1 - weight) + profileRate * weight + expectedAdjustment)
+  return clampPercent(base * (1 - weight) + profileRate * weight + expectedAdjustment * weight)
 }
 
 function adjustedOptionalRate(

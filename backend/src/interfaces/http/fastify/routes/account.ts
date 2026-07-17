@@ -1,5 +1,6 @@
 import { Type, type FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox'
 import type { IdentityService } from '../../../../application/identityService.js'
+import type { PrivacyCoordinator } from '../../../../application/privacyCoordinator.js'
 import { ProblemSchema } from '../problem.js'
 import {
   EmailBodySchema,
@@ -12,13 +13,15 @@ const LooseResponse = Type.Object({}, { additionalProperties: true })
 
 export const accountRoutes: FastifyPluginAsyncTypebox<{
   identityService: IdentityService
-}> = async (app, { identityService }) => {
+  privacy: PrivacyCoordinator
+}> = async (app, { identityService, privacy }) => {
   app.get('/me', {
     schema: {
       tags: ['account'], security: [{ bearerAuth: [] }],
       response: {
         200: Type.Object({
           userId: Type.String(), organizationId: Type.String(), role: Type.String(), sessionId: Type.String(),
+          platformAdmin: Type.Boolean(),
         }),
         default: ProblemSchema,
       },
@@ -30,6 +33,7 @@ export const accountRoutes: FastifyPluginAsyncTypebox<{
       organizationId: actor.organizationId,
       role: actor.role,
       sessionId: actor.sessionId,
+      platformAdmin: actor.platformAdmin === true,
     }
   })
 
@@ -89,7 +93,7 @@ export const accountRoutes: FastifyPluginAsyncTypebox<{
       response: { 204: Type.Null(), default: ProblemSchema },
     },
   }, async (request, reply) => {
-    await identityService.deleteAccount(actorFrom(request), request.body.replacementOwnerUserId)
+    await privacy.deleteAccount(actorFrom(request), request.body.replacementOwnerUserId)
     return reply.code(204).send(null)
   })
 }

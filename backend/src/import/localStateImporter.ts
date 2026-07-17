@@ -17,7 +17,13 @@ import type {
   FixtureRecord,
 } from '../schemas.js'
 import { normalizeTeamAlias, teamKey } from '../teamNames.js'
+import { describeScoreRejection, validateGoalScore } from '../scoreValidation.js'
 import { parseSourceDate } from './dateParser.js'
+import {
+  buildResultContext,
+  decisionFromProviderStatus,
+  normalizeProviderFixtureStatus,
+} from '../domain/sportsData.js'
 
 export interface LocalStateImportOptions {
   dataDirectory?: string
@@ -99,6 +105,7 @@ export function prepareSportsImportBatch(input: {
     rejectedRows: issues.filter((item) => item.code !== 'duplicate').length,
     duplicateRows: deduped.duplicates,
     ambiguousRows: ambiguous.count,
+    issues,
   }
 
   return { batch, issues }
@@ -179,6 +186,7 @@ export async function importLocalState(
     rejectedRows: issues.filter((item) => item.code !== 'duplicate').length,
     duplicateRows: deduped.duplicates,
     ambiguousRows: ambiguous.count,
+    issues,
   }
   const preview = await repositories.sports.previewImport(batch)
 
@@ -243,8 +251,8 @@ function normalizeCsvRow(row: CsvRow, rowNumber: number, allowDemoData: boolean)
   const startsAt = parseSourceDate(required(row.Date, 'Date'))
   const homeName = required(row.HomeTeam, 'HomeTeam')
   const awayName = required(row.AwayTeam, 'AwayTeam')
-  const homeGoals = nonNegativeInteger(required(row.FTHG, 'FTHG'), 'FTHG')
-  const awayGoals = nonNegativeInteger(required(row.FTAG, 'FTAG'), 'FTAG')
+  const homeGoals = validatedGoalScore(row.FTHG, 'FTHG', 'home')
+  const awayGoals = validatedGoalScore(row.FTAG, 'FTAG', 'away')
   const computedOutcome = homeGoals > awayGoals ? 'H' : homeGoals < awayGoals ? 'A' : 'D'
   const suppliedOutcome = optional(row.FTR)
 
@@ -280,9 +288,17 @@ function normalizeCsvRow(row: CsvRow, rowNumber: number, allowDemoData: boolean)
     status: 'finished',
     rawStatus: 'FT',
     sourceUpdatedAt: optionalDate(row.UpdatedAt),
-    homeTeam: normalizeTeam(sourceProvider, homeName),
-    awayTeam: normalizeTeam(sourceProvider, awayName),
-    result: { homeGoals, awayGoals, outcome: computedOutcome },
+    homeTeam: normalizeTeam(sourceProvider, homeName, optional(row.HomeTeamExternalId)),
+    awayTeam: normalizeTeam(sourceProvider, awayName, optional(row.AwayTeamExternalId)),
+    result: buildResultContext({
+      homeGoals,
+      awayGoals,
+      decision: resultDecision(row),
+      homeExtraTimeGoals: optionalInteger(row.HomeExtraTimeGoals, 'HomeExtraTimeGoals'),
+      awayExtraTimeGoals: optionalInteger(row.AwayExtraTimeGoals, 'AwayExtraTimeGoals'),
+      homePenaltyGoals: optionalInteger(row.HomePenaltyGoals, 'HomePenaltyGoals'),
+      awayPenaltyGoals: optionalInteger(row.AwayPenaltyGoals, 'AwayPenaltyGoals'),
+    }),
     stats: optionalStats(row),
   }
 }
@@ -310,20 +326,20 @@ function normalizeFixture(
     seasonExternalId: seasonLabel ? `${competitionExternalId}:${normalizeIdentifier(seasonLabel)}` : undefined,
     seasonLabel,
     startsAt,
-    status: normalizeFixtureStatus(fixture.status),
+    status: normalizeProviderFixtureStatus(fixture.status),
     rawStatus: fixture.status,
     round: optional(fixture.round),
     sourceUpdatedAt: optionalDate(fixture.updatedAt),
-    homeTeam: normalizeTeam(sourceProvider, homeName),
-    awayTeam: normalizeTeam(sourceProvider, awayName),
+    homeTeam: normalizeTeam(sourceProvider, homeName, optional(fixture.homeTeamExternalId)),
+    awayTeam: normalizeTeam(sourceProvider, awayName, optional(fixture.awayTeamExternalId)),
   }
 }
 
-function normalizeTeam(sourceProvider: string, name: string) {
+function normalizeTeam(sourceProvider: string, name: string, providerExternalId?: string) {
   const normalizedAlias = normalizeTeamAlias(name)
   const canonical = teamKey(name)
   return {
-    externalId: canonical,
+    externalId: providerExternalId ?? canonical,
     name,
     alias: name,
     normalizedAlias,
@@ -473,6 +489,12 @@ function optionalInteger(value: string | undefined, field: string) {
   return parsed === undefined ? undefined : nonNegativeInteger(parsed, field)
 }
 
+function validatedGoalScore(raw: string | undefined, field: string, side: 'home' | 'away') {
+  const result = validateGoalScore(raw, field, side)
+  if (!result.ok) throw codedError(result.rejection.code, describeScoreRejection(result.rejection))
+  return result.value
+}
+
 function nonNegativeInteger(value: string, field: string) {
   if (!/^\d+$/.test(value)) throw codedError('invalid_number', `${field} deve ser inteiro nao negativo.`)
   return Number(value)
@@ -498,14 +520,12 @@ function normalizeIdentifier(value: string) {
   return teamKey(value).replaceAll(' ', '-')
 }
 
-function normalizeFixtureStatus(value: string): NormalizedSportsRecord['status'] {
-  const status = value.trim().toUpperCase()
-  if (['NS', 'TBD'].includes(status)) return 'scheduled'
-  if (['1H', 'HT', '2H', 'ET', 'BT', 'P', 'LIVE'].includes(status)) return 'live'
-  if (['FT', 'AET', 'PEN'].includes(status)) return 'finished'
-  if (['PST', 'POSTPONED'].includes(status)) return 'postponed'
-  if (['CANC', 'ABD', 'AWD', 'WO'].includes(status)) return 'cancelled'
-  return 'unknown'
+function resultDecision(row: CsvRow) {
+  const declared = optional(row.ResultDecision)
+  if (declared === 'regulation' || declared === 'extra_time' || declared === 'penalties' || declared === 'administrative') {
+    return declared
+  }
+  return decisionFromProviderStatus(row.RawStatus ?? 'FT')
 }
 
 function rejectDemoProvider(provider: string, allowDemoData: boolean) {

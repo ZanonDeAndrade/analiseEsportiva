@@ -10,6 +10,8 @@
   z-index: 5;
 }
 
+.header > * { min-width: 0; }
+
 .menuBtn {
   display: none; /* shown on mobile only */
   align-items: center;
@@ -30,6 +32,11 @@
   gap: 10px;
   flex-shrink: 0;
 }
+
+.organizationPicker { display: grid; gap: 2px; min-width: 138px; }
+.organizationPicker span { color: var(--muted-3); font: 700 8px/1 var(--font-data, ui-monospace, monospace); letter-spacing: .08em; text-transform: uppercase; }
+.organizationPicker select { max-width: 176px; border: 0; padding: 2px 18px 2px 0; background: var(--bg-header); color: var(--text-2); font-size: 11px; }
+.organizationPicker select:focus-visible { outline: 2px solid var(--signal, #ff8c42); outline-offset: 3px; }
 
 .logo {
   width: 32px;
@@ -55,6 +62,7 @@
 
 .search {
   flex: 1;
+  min-width: 120px;
   max-width: 360px;
   display: flex;
   align-items: center;
@@ -68,6 +76,7 @@
   border-color: var(--accent-soft-2);
 }
 .search input {
+  min-width: 0;
   background: none;
   border: none;
   outline: none;
@@ -166,6 +175,9 @@
   .aiBtn {
     padding: 8px 10px;
   }
+  .search { max-width: none; }
+  .spacer { display: none; }
+  .organizationPicker, .refreshBtn, .logoutBtn { display: none; }
 }
 .accountBtn,
 .logoutBtn {
@@ -183,4 +195,36 @@
 
 .logoutBtn {
   background: transparent;
+}
+
+.refreshBtn {
+  border: 1px solid var(--border-mid);
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.refreshBtn:disabled { opacity: .55; cursor: wait; }
+
+.mobileButtonLabel { display: none; }
+
+@media (max-width: 560px) {
+  .header { gap: 8px; padding-inline: 10px; }
+  .wordmark, .aiLabel, .aiDot, .accountName, .dataLabel { display: none; }
+  .aiBtn, .accountBtn {
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+  .mobileButtonLabel { display: inline; }
+  .search { min-width: 0; padding-inline: 9px; }
+}
+
+@media (max-width: 360px) {
+  .header { gap: 6px; padding-inline: 8px; }
+  .search { padding-inline: 7px; }
+  .search svg { display: none; }
 }

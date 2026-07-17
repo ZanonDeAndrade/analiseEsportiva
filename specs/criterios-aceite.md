@@ -3,7 +3,6 @@
 ## Frontend
 
 - A aplicacao carrega com header, filtros, lista de jogos e painel de analise.
-- Copa do Mundo 2026 aparece no filtro lateral.
 - O frontend tenta carregar fixtures do backend.
 - Se o backend falhar, a UI mostra estado amigavel sem substituir por jogos mockados.
 - O painel mostra competicao/liga, data/hora, fonte, `updatedAt`, mercados disponiveis e ignorados.
@@ -31,7 +30,6 @@
 - Cartoes usam `HY + AY + HR + AR` quando existirem.
 - Escanteios usam `HC + AC` quando existirem.
 - Ausencia de cartoes/escanteios retorna `dados_insuficientes`.
-- Copa do Mundo e segmentada como `competition=World Cup 2026`.
 
 ## Jobs e Operacao
 

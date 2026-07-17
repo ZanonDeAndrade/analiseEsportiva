@@ -1,5 +1,6 @@
 import { LogoMark, MenuIcon, SearchIcon, SparkIcon } from './Icons'
 import styles from './Header.module.css'
+import type { OrganizationSummary } from '../lib/saasApi'
 
 interface HeaderProps {
   query: string
@@ -7,10 +8,17 @@ interface HeaderProps {
   aiOn: boolean
   onToggleAI: () => void
   onOpenMenu: () => void
+  menuOpen: boolean
   dataStatus: 'real' | 'demo' | 'warning' | 'offline'
   userName?: string
   onOpenAccount: () => void
   onLogout: () => void
+  onOpenDataOperations?: () => void
+  organizations: OrganizationSummary[]
+  activeOrganizationId?: string
+  onSwitchOrganization: (organizationId: string) => void
+  onRefresh: () => void
+  refreshing: boolean
 }
 
 export default function Header({
@@ -19,10 +27,17 @@ export default function Header({
   aiOn,
   onToggleAI,
   onOpenMenu,
+  menuOpen,
   dataStatus,
   userName,
   onOpenAccount,
   onLogout,
+  onOpenDataOperations,
+  organizations,
+  activeOrganizationId,
+  onSwitchOrganization,
+  onRefresh,
+  refreshing,
 }: HeaderProps) {
   const statusText =
     dataStatus === 'offline'
@@ -46,6 +61,8 @@ export default function Header({
         className={styles.menuBtn}
         onClick={onOpenMenu}
         aria-label="Abrir filtros"
+        aria-expanded={menuOpen}
+        aria-controls="sidebar"
       >
         <MenuIcon size={18} />
       </button>
@@ -58,6 +75,19 @@ export default function Header({
           BetIntel<span>&nbsp;AI</span>
         </div>
       </div>
+
+      {organizations.length > 1 && <label className={styles.organizationPicker}>
+        <span>{'Organiza\u00e7\u00e3o ativa'}</span>
+        <select
+          value={activeOrganizationId ?? ''}
+          onChange={(event) => onSwitchOrganization(event.target.value)}
+          aria-label={'Organiza\u00e7\u00e3o ativa'}
+        >
+          {organizations.map((organization) => (
+            <option key={organization.id} value={organization.id}>{organization.name}</option>
+          ))}
+        </select>
+      </label>}
 
       <label className={styles.search}>
         <SearchIcon />
@@ -76,9 +106,10 @@ export default function Header({
         onClick={onToggleAI}
         className={`${styles.aiBtn} ${aiOn ? styles.aiOn : ''}`}
         aria-pressed={aiOn}
+        aria-label={`Análise IA: ${aiOn ? 'ativada' : 'desativada'}`}
       >
         <SparkIcon size={14} color="currentColor" />
-        Análise IA
+        <span className={styles.aiLabel}>Análise IA</span>
         <span className={`${styles.aiDot} ${aiOn ? styles.aiDotOn : ''}`} />
       </button>
 
@@ -87,9 +118,15 @@ export default function Header({
         {statusText}
       </div>
 
-      <button type="button" className={styles.accountBtn} onClick={onOpenAccount}>
-        {userName ?? 'Conta'}
+      <button type="button" className={styles.refreshBtn} onClick={onRefresh} disabled={refreshing}>
+        {refreshing ? 'Atualizando\u2026' : 'Atualizar'}
       </button>
+
+      <button type="button" className={styles.accountBtn} aria-label="Abrir conta e segurança" onClick={onOpenAccount}>
+        <span className={styles.accountName}>{userName ?? 'Conta'}</span>
+        <span className={styles.mobileButtonLabel} aria-hidden="true">C</span>
+      </button>
+      {onOpenDataOperations && <button type="button" className={`${styles.accountBtn} ${styles.dataBtn}`} aria-label="Operação de dados" onClick={onOpenDataOperations}><span className={styles.dataLabel}>Dados</span><span className={styles.mobileButtonLabel} aria-hidden="true">D</span></button>}
       <button type="button" className={styles.logoutBtn} onClick={onLogout}>
         Sair
       </button>

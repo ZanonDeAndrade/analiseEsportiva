@@ -10,8 +10,10 @@
 
 .topRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   margin-bottom: 12px;
 }
 
@@ -34,8 +36,10 @@
 
 .topRight {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
+  margin-left: auto;
 }
 .confidenceText {
   font-size: 10px;
@@ -282,11 +286,29 @@
   overflow: hidden;
 }
 
+.evidenceRail { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 12px 0 20px; padding: 0; list-style: none; }
+.evidenceRail li { position: relative; min-width: 0; display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 6px; align-items: center; }
+.evidenceRail li:not(:last-child)::after { content: ''; position: absolute; top: 10px; left: 20px; right: -2px; height: 1px; background: var(--signal); opacity: .35; }
+.evidenceRail li > span { z-index: 1; display: grid; place-items: center; width: 21px; height: 21px; border: 1px solid rgba(255,140,66,.5); border-radius: 50%; background: var(--bg-panel); color: var(--signal); font: 700 7px/1 var(--font-data); }
+.evidenceRail li div { z-index: 1; min-width: 0; display: grid; gap: 3px; padding-right: 4px; background: var(--bg-panel); }
+.evidenceRail small { color: var(--muted-3); font: 700 7px/1 var(--font-data); }
+.evidenceRail b { overflow: hidden; color: var(--text-2); font: 600 8px/1.2 var(--font-data); text-overflow: ellipsis; white-space: nowrap; }
+.intervalPlots { display: grid; gap: 13px; margin: 14px 0; padding: 14px; border: 1px solid var(--border-soft); border-radius: 9px; background: var(--bg-card); }
+.intervalPlot { display: grid; gap: 5px; }
+.plotLabel { display: flex; justify-content: space-between; gap: 8px; color: var(--text-2); font-size: 10px; }
+.plotScale { position: relative; height: 10px; border: 1px solid var(--border-mid); background: repeating-linear-gradient(90deg, transparent 0, transparent calc(25% - 1px), rgba(255,255,255,.06) 25%); }
+.plotInterval { position: absolute; top: 2px; bottom: 2px; background: var(--signal); opacity: .6; }
+.plotPoint { position: absolute; top: -3px; width: 2px; height: 14px; background: var(--accent); transform: translateX(-1px); }
+.plotAxis { display: flex; justify-content: space-between; margin-top: 3px; color: var(--muted-3); font: 600 8px/1 var(--font-data); }
+.intervalPlot > small { color: var(--muted-3); font: 600 8px/1 var(--font-data); }
+
 .confBox {
   margin-top: 20px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   padding: 12px 14px;
   background: var(--bg-card);
   border: 1px solid var(--border-soft);
@@ -332,3 +354,24 @@
     display: inline-flex;
   }
 }
+
+@media (max-width: 420px) {
+  .body { padding: 16px 14px 26px; }
+  .topRight { width: 100%; justify-content: space-between; margin-left: 0; }
+  .metaGrid, .statGrid, .last5Grid { grid-template-columns: 1fr; }
+  .evidenceRail { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 8px; }
+  .evidenceRail li:not(:last-child)::after { display: none; }
+  .plotLabel { align-items: flex-start; flex-direction: column; gap: 3px; }
+}
+.insufficientData {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgb(224 169 46 / 30%);
+  border-radius: 8px;
+  background: rgb(224 169 46 / 8%);
+  color: var(--text-2);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.predictionError { display: grid; gap: 5px; margin: 10px 0; padding: 11px 12px; border: 1px solid rgba(224,82,78,.32); border-radius: 8px; background: rgba(224,82,78,.09); color: var(--red-2); }
+.predictionError span, .predictionError small { color: var(--text-2); line-height: 1.4; }

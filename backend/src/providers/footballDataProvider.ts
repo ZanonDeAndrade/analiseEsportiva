@@ -31,23 +31,26 @@ const RESULT_COLUMNS = new Set([
   'AR',
 ])
 
-export const defaultFootballDataSources = [
-  {
-    league: 'Premier League',
-    season: '2025-2026',
-    url: 'https://www.football-data.co.uk/mmz4281/2526/E0.csv',
-  },
-  {
-    league: 'La Liga',
-    season: '2025-2026',
-    url: 'https://www.football-data.co.uk/mmz4281/2526/SP1.csv',
-  },
-  {
-    league: 'Bundesliga',
-    season: '2025-2026',
-    url: 'https://www.football-data.co.uk/mmz4281/2526/D1.csv',
-  },
-]
+const FOOTBALL_DATA_LEAGUES = [
+  { league: 'Premier League', code: 'E0' },
+  { league: 'La Liga', code: 'SP1' },
+  { league: 'Bundesliga', code: 'D1' },
+] as const
+
+/** Gera fontes historicas por janela; nao existe calendario ficticio embutido. */
+export function buildFootballDataSources(years = 5, now = new Date()) {
+  const currentStartYear = now.getUTCMonth() >= 6 ? now.getUTCFullYear() : now.getUTCFullYear() - 1
+  return Array.from({ length: Math.max(1, Math.min(10, years)) }, (_, offset) => currentStartYear - offset)
+    .flatMap((startYear) => FOOTBALL_DATA_LEAGUES.map(({ league, code }) => {
+      const endYear = startYear + 1
+      const pathSeason = `${String(startYear).slice(-2)}${String(endYear).slice(-2)}`
+      return {
+        league,
+        season: `${startYear}-${endYear}`,
+        url: `https://www.football-data.co.uk/mmz4281/${pathSeason}/${code}.csv`,
+      }
+    }))
+}
 
 export async function fetchFootballDataCsv(options: FootballDataFetchOptions): Promise<CsvRow[]> {
   const fetcher = options.fetcher ?? fetch

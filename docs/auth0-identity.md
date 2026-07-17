@@ -118,7 +118,7 @@ exports.onExecutePostLogin = async (event, api) => {
   const isRefresh = event.transaction?.protocol === 'oauth2-refresh-token'
   if (!isRefresh && event.transaction?.requested_scopes?.includes('offline_access')) {
     api.refreshToken.setMetadata('betintel_session_id', sessionId)
-    api.refreshToken.setMetadata('betintel_auth_time_ms', authenticatedAt)
+    api.refreshToken.setMetadata('betintel_auth_time_ms', String(authenticatedAt))
   }
 
   api.accessToken.setCustomClaim(SESSION_CLAIM, sessionId)
@@ -126,7 +126,8 @@ exports.onExecutePostLogin = async (event, api) => {
 }
 ```
 
-A metadata do refresh token preserva os dois valores quando a Post-Login Action
+A API de Actions exige que valores de metadata sejam strings. A metadata do
+refresh token preserva os dois valores quando a Post-Login Action
 roda numa troca de refresh sem todo o contexto interativo. Não use `Date.now()`
 durante refresh: isso faria uma sessão antiga parecer recém-autenticada. A SPA chama
 Universal Login com `max_age=0`; a Action recalcula o instante a partir dos métodos

@@ -51,6 +51,7 @@ export interface ActorContext {
   tokenExpiresAt: string
   authenticatedAt?: string
   requestId?: string
+  platformAdmin?: boolean
 }
 
 export interface IdentityRequestMetadata {

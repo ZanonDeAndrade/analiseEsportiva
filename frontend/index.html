@@ -16,7 +16,33 @@
     />
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Spinner do primeiro carregamento: aparece enquanto o bundle baixa e o
+         React ainda nao montou. Quando o app renderiza, ele substitui o conteudo
+         de #root e este spinner some sozinho. -->
+    <style>
+      #boot-loader {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: #0e0f13;
+      }
+      #boot-loader span {
+        width: 34px;
+        height: 34px;
+        border: 3px solid rgba(255, 255, 255, 0.16);
+        border-top-color: #ff8c42;
+        border-radius: 50%;
+        animation: boot-spin 0.7s linear infinite;
+      }
+      @keyframes boot-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) {
+        #boot-loader span { animation-duration: 1.6s !important; animation-iteration-count: infinite !important; }
+      }
+    </style>
+    <div id="root">
+      <div id="boot-loader"><span role="status" aria-label="Carregando"></span></div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

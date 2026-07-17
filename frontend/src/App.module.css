@@ -6,12 +6,20 @@
   color: var(--text);
   overflow: hidden;
 }
+.skipLink { position: fixed; top: 8px; left: 8px; z-index: 300; padding: 9px 12px; transform: translateY(-150%); border-radius: 8px; background: var(--signal); color: #071012; font-weight: 800; }
+.skipLink:focus { transform: none; }
+.statePage { grid-column: 2 / -1; padding: 40px; overflow: auto; }
 
 .shell {
   flex: 1;
   min-height: 0;
   display: grid;
   grid-template-columns: 228px minmax(0, 1fr) 376px;
+}
+
+/* Não reserva a coluna do detalhe enquanto nenhum jogo estiver selecionado. */
+.shellWithoutAnalysis {
+  grid-template-columns: 228px minmax(0, 1fr);
 }
 
 /* Tablet: drop the analysis column (it opens as a drawer instead). */
@@ -26,6 +34,7 @@
   .shell {
     grid-template-columns: minmax(0, 1fr);
   }
+  .statePage { grid-column: 1; padding: 22px 16px; }
 }
 
 .backdrop {

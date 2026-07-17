@@ -175,8 +175,7 @@ deve priorizar clareza e reprodutibilidade, nao sofisticacao desnecessaria.
 ```text
 Preciso estruturar o pipeline de dados do BetIntel AI. A fonte principal para
 jogos atuais deve ser API-Football, usando `API_FOOTBALL_KEY` por variavel de
-ambiente. Para a Copa do Mundo 2026, a regra e usar `league=1`, `season=2026` e
-segmento `World Cup 2026`.
+ambiente e somente as ligas configuradas pelo adaptador.
 
 Tambem quero usar CSVs historicos do Football-Data.co.uk para treinamento,
 ignorando odds e aproveitando apenas colunas esportivas como placar, resultado,
@@ -196,43 +195,6 @@ Me ajude a desenhar o fluxo:
 Inclua tambem riscos e limitacoes, como plano gratuito da API, ausencia de dados
 de cartoes/escanteios e necessidade de fallback. Nao escreva implementacao
 completa; quero um desenho tecnico para orientar o desenvolvimento.
-```
-
-## 8. Prompt para obter planilha com dados das ultimas Copas
-
-```text
-Preciso montar uma base historica em formato Excel para alimentar o treinamento
-do BetIntel AI. O arquivo deve conter partidas das ultimas Copas do Mundo ja
-concluidas, priorizando dados verificaveis e sem odds.
-
-Monte uma especificacao de planilha `.xlsx` com dados das Copas de 2002, 2006,
-2010, 2014, 2018 e 2022. Para cada partida, quero colunas como:
-- ano da Copa;
-- fase;
-- data;
-- selecao mandante ou time A;
-- selecao visitante ou time B;
-- gols do time A;
-- gols do time B;
-- resultado final;
-- vencedor;
-- total de gols;
-- ambas marcam;
-- over 1.5 gols;
-- over 2.5 gols;
-- over 3.5 gols;
-- under 2.5 gols;
-- under 3.5 gols;
-- observacoes sobre prorrogacao ou penaltis, quando relevante;
-- fonte dos dados.
-
-Nao inclua odds, casas de aposta, probabilidades prontas ou recomendacoes
-financeiras. Se algum dado nao estiver disponivel com seguranca, marque como
-ausente em vez de inventar.
-
-O objetivo da planilha e servir como base historica para treinamento e validacao
-academica de um modelo probabilistico simples. A saida deve ser organizada para
-posterior importacao no backend TypeScript do projeto.
 ```
 
 ## 9. Feature engineering e labels
@@ -266,56 +228,6 @@ cada mercado, indique:
 Nao use odds e nao trate cartoes/escanteios como obrigatorios para todo dataset.
 ```
 
-## 10. Prompt para orientar o treinamento do modelo
-
-```text
-Agora quero usar a base historica das ultimas Copas do Mundo para treinar a
-IA/modelo do BetIntel AI. O objetivo nao e criar uma previsao garantida, mas um
-modelo academico e explicavel de analise probabilistica baseado em dados
-historicos.
-
-Considere que a planilha contem partidas historicas com colunas como ano, fase,
-selecoes, placar, total de gols, resultado, over/under e ambas marcam. Me ajude
-a definir o fluxo de treinamento com as seguintes etapas:
-
-1. Ler os dados historicos da planilha ou CSV.
-2. Validar se as colunas obrigatorias existem.
-3. Remover ou marcar linhas incompletas.
-4. Gerar features a partir dos jogos:
-   - total de gols;
-   - resultado 1X2;
-   - desempenho historico por selecao;
-   - gols pro e contra;
-   - frequencia de over/under;
-   - frequencia de ambas marcam;
-   - desempenho por fase ou edicao da Copa, se houver amostra suficiente.
-5. Criar labels para os mercados:
-   - 1X2;
-   - Over 1.5 gols;
-   - Over 2.5 gols;
-   - Over 3.5 gols;
-   - Under 2.5 gols;
-   - Under 3.5 gols;
-   - Ambas Marcam;
-   - Dupla Chance.
-6. Treinar um modelo simples e explicavel usando frequencias historicas
-   segmentadas, evitando modelos complexos demais para uma base pequena.
-7. Calcular probabilidades globais e probabilidades por segmento.
-8. Retornar `dados_insuficientes` quando a amostra de um mercado ou segmento for
-   menor que o minimo definido.
-9. Avaliar o modelo com metricas como accuracy, brier score, cobertura por
-   mercado e backtesting temporal.
-10. Salvar o artefato treinado em `backend/artifacts/model.json`.
-
-Quero que o treinamento seja defensavel em apresentacao academica. Explique as
-limitacoes da base de Copas do Mundo, principalmente o tamanho reduzido da
-amostra, mudancas de selecoes ao longo dos anos e o risco de falsa precisao.
-
-Nao use odds. Nao apresente o resultado como recomendacao de aposta. O modelo
-deve produzir estimativas educacionais acompanhadas do aviso:
-"Analise baseada em dados historicos. Nao garante resultado."
-```
-
 ## 11. Refinamento do treinamento para diferenciar confrontos
 
 ```text
@@ -323,8 +235,8 @@ Percebi que uma analise igual para todas as partidas nao seria suficiente para
 defender o projeto. Quero melhorar o treinamento para que o BetIntel AI
 diferencie os confrontos.
 
-Use a base historica das Copas e dos CSVs historicos para criar perfis por time
-ou selecao. Para cada time, calcule:
+Use a base dos CSVs historicos para criar perfis por time. Para cada time,
+calcule:
 - quantidade de jogos;
 - vitorias, empates e derrotas;
 - gols marcados;
@@ -432,27 +344,6 @@ Me ajude a revisar essa estrategia:
 
 Nao quero uma promessa de performance. Quero um mecanismo de validacao tecnica
 para demonstrar maturidade do projeto.
-```
-
-## 16. Integracao com API-Football e Copa 2026
-
-```text
-Preciso integrar o BetIntel AI com a API-Football para buscar jogos atuais. A
-chave deve ser lida somente pela variavel de ambiente `API_FOOTBALL_KEY`.
-
-Para a Copa do Mundo 2026, use:
-- `league=1`;
-- `season=2026`;
-- segmento `World Cup 2026`.
-
-Me ajude a definir uma estrategia segura para buscar fixtures futuras, salvar
-cache local e lidar com falhas da API. Se a API nao retornar jogos por limitacao
-de plano, o sistema deve cair para um calendario oficial/fallback, sem deixar o
-frontend vazio.
-
-A implementacao nao deve usar odds, previsoes prontas da API nem recomendacoes
-de aposta. A resposta deve manter o carater academico e informar a fonte dos
-dados.
 ```
 
 ## 17. Ingestao de CSVs historicos
@@ -569,7 +460,6 @@ professor. Use este checklist:
 - build sem erro;
 - testes passando;
 - filtros funcionando;
-- Copa do Mundo 2026 no frontend;
 - painel de analise atualizando;
 - layout legivel em desktop e mobile;
 - aviso etico visivel;
@@ -602,4 +492,3 @@ Artificial. Verifique se o repositorio demonstra:
 Aponte o que esta completo, o que esta fraco e o que precisa ser ajustado antes
 da entrega.
 ```
-

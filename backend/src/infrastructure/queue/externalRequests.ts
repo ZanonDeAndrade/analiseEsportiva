@@ -82,37 +82,50 @@ export class ExternalRequestGuard {
     minimumGapMs: number
     signal?: AbortSignal
     operation: () => Promise<T>
+    maxAttempts?: number
+    baseRetryDelayMs?: number
   }): Promise<T> {
     await this.breaker.assertClosed(input.provider)
-    await this.breaker.waitForSlot(input.provider, input.minimumGapMs, input.signal)
-    const reservation = await this.quota.reserve(input.provider, input.limits)
-    for (const alert of reservation.alerts) {
-      telemetryMetrics.recordQuota(input.provider, alert.period, alert.count, alert.limit)
-      this.logger.info('provider_quota_alert', {
-        provider: input.provider,
-        period: alert.period,
-        count: alert.count,
-        limit: alert.limit,
-      })
-    }
     const startedAt = performance.now()
+    const maxAttempts = Math.max(1, Math.min(5, input.maxAttempts ?? 1))
     try {
-      const response = await withSpan(
-        `external ${input.provider}`,
-        { 'peer.service': input.provider, 'betintel.provider': input.provider },
-        input.operation,
-        { kind: SpanKind.CLIENT },
-      )
-      if (response.status === 429 || response.status >= 500) {
-        throw new ExternalProviderError(input.provider, response.status)
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        await this.breaker.assertClosed(input.provider)
+        await this.breaker.waitForSlot(input.provider, input.minimumGapMs, input.signal)
+        const reservation = await this.quota.reserve(input.provider, input.limits)
+        for (const alert of reservation.alerts) {
+          telemetryMetrics.recordQuota(input.provider, alert.period, alert.count, alert.limit)
+          this.logger.info('provider_quota_alert', {
+            provider: input.provider,
+            period: alert.period,
+            count: alert.count,
+            limit: alert.limit,
+          })
+        }
+        try {
+          const response = await withSpan(
+            `external ${input.provider}`,
+            { 'peer.service': input.provider, 'betintel.provider': input.provider, 'betintel.retry_attempt': attempt },
+            input.operation,
+            { kind: SpanKind.CLIENT },
+          )
+          if (response.status === 429 || response.status >= 500) {
+            throw new ExternalProviderError(input.provider, response.status)
+          }
+          await this.breaker.recordSuccess(input.provider)
+          telemetryMetrics.recordExternal(input.provider, 'success')
+          return response
+        } catch (error) {
+          if (!(error instanceof QuotaExceededError) && !(error instanceof CircuitOpenError)) {
+            await this.breaker.recordFailure(input.provider)
+          }
+          if (attempt >= maxAttempts || !retryable(error)) throw error
+          const backoff = (input.baseRetryDelayMs ?? 250) * (2 ** (attempt - 1))
+          await delay(backoff + Math.floor(Math.random() * Math.max(1, backoff / 4)), undefined, { signal: input.signal })
+        }
       }
-      await this.breaker.recordSuccess(input.provider)
-      telemetryMetrics.recordExternal(input.provider, 'success')
-      return response
+      throw new ExternalProviderError(input.provider)
     } catch (error) {
-      if (!(error instanceof QuotaExceededError) && !(error instanceof CircuitOpenError)) {
-        await this.breaker.recordFailure(input.provider)
-      }
       telemetryMetrics.recordExternal(input.provider, externalOutcome(error))
       throw error
     } finally {
@@ -122,6 +135,11 @@ export class ExternalRequestGuard {
       })
     }
   }
+}
+
+function retryable(error: unknown) {
+  if (error instanceof QuotaExceededError || error instanceof CircuitOpenError) return false
+  return error instanceof ExternalProviderError || error instanceof TypeError
 }
 
 function externalOutcome(error: unknown) {

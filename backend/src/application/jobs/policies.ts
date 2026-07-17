@@ -24,6 +24,7 @@ const policies: Record<QueueName, Omit<QueuePolicy, 'queue'>> = {
   [QueueNames.EXPORT]: policy(2, 3, 20 * 60_000),
   [QueueNames.NOTIFICATION]: policy(10, 5, 2 * 60_000),
   [QueueNames.BILLING_RECONCILIATION]: policy(2, 5, 10 * 60_000),
+  [QueueNames.MAINTENANCE]: policy(1, 5, 20 * 60_000),
 }
 
 export function queuePolicy(queue: QueueName): QueuePolicy {
@@ -42,6 +43,7 @@ export const executableJobTypes = new Set<SystemJobType>([
   SystemJobTypes.MODEL_TRAINING,
   SystemJobTypes.EVALUATION,
   SystemJobTypes.BACKTEST,
+  SystemJobTypes.PRIVACY_RETENTION,
 ])
 
 function policy(

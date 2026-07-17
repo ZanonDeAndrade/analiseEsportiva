@@ -10,6 +10,7 @@ import {
   httpTrustProxyHops,
   legacyHttpRoutesEnabled,
   metricsBearerToken,
+  platformAdminSubjects,
   redisKeyPrefix,
   redisUrl,
   readinessTimeoutMs,
@@ -81,6 +82,7 @@ const server = createBetIntelHttpServer({
   redisNamespace: `${redisKeyPrefix()}:http-rate-limit:`,
   trustProxyHops: httpTrustProxyHops(),
   metricsBearerToken: metricsBearerToken(),
+  platformAdminSubjects: platformAdminSubjects(),
 })
 
 try {

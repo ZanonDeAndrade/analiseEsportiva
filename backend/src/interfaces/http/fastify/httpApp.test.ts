@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { randomUUID } from 'node:crypto'
 import type { IdentityService } from '../../../application/identityService.js'
 import { IdentityError } from '../../../application/identityErrors.js'
 import type { OrganizationService } from '../../../application/organizationService.js'
 import type { ActorContext } from '../../../application/ports/identity.js'
 import type { PersistenceRepositories } from '../../../application/ports/persistence.js'
+import type { LegalRepository } from '../../../application/ports/legal.js'
+import type { WorkspaceRepository } from '../../../application/ports/workspace.js'
+import type { OperationsRepository } from '../../../application/ports/operations.js'
+import type { PrivacyRepository } from '../../../application/ports/privacy.js'
+import type { BillingPortalGateway } from './routes/billing.js'
 import type { DatabaseConnection } from '../../../infrastructure/database/client.js'
 import { createBetIntelHttpServer, type HttpServerDependencies } from '../../../httpApp.js'
 
@@ -165,6 +171,8 @@ test('OpenAPI nasce dos schemas e rotas legadas ficam sob feature flag', async (
     '/v1/organizations',
     '/v1/account/sessions',
     '/v1/billing/portal',
+    '/v1/legal/status',
+    '/v1/legal/acceptances',
     '/v1/admin/jobs/model-training',
     '/v1/admin/queues',
   ]) {
@@ -180,6 +188,121 @@ test('OpenAPI nasce dos schemas e rotas legadas ficam sob feature flag', async (
   assert.equal(legacy.headers.deprecation, 'true')
   assert.match(String(legacy.headers.sunset ?? ''), /15 Oct 2026/)
   await compatibilityApp.close()
+})
+
+test('documentos jurídicos são públicos e aceite usa ator e horário do servidor', async () => {
+  let recordedActor: ActorContext | undefined
+  let recordedInput: Parameters<LegalRepository['recordAcceptances']>[1] | undefined
+  const acceptedAt = '2026-07-16T03:00:00.000Z'
+  const app = testApp({
+    recordAcceptances: async (actor, input) => {
+      recordedActor = actor
+      recordedInput = input
+      return legalDocuments().map((document) => ({
+        id: randomUUID(), evidenceEventId: '33333333-3333-4333-8333-333333333333',
+        userId: actor.userId, organizationId: actor.organizationId, legalDocumentId: document.id,
+        documentType: document.type, documentVersion: document.version,
+        acceptanceGroup: document.acceptanceGroup, acceptancePurpose: input.purpose,
+        acceptedAt, contentHash: document.contentHash, documentUrl: document.documentUrl,
+        evidenceMetadata: { origin: input.evidence.origin },
+      }))
+    },
+  })
+  const publicDocuments = await app.inject('/v1/legal/documents')
+  assert.equal(publicDocuments.statusCode, 200, publicDocuments.body)
+  assert.equal(publicDocuments.json().documents.length, 3)
+
+  const response = await app.inject({
+    method: 'POST', url: '/v1/legal/acceptances',
+    headers: { ...authHeaders(), 'idempotency-key': 'legal-test-acceptance-1' },
+    payload: legalAcceptancePayload(),
+  })
+  assert.equal(response.statusCode, 201, response.body)
+  assert.equal(response.json().acceptedAt, acceptedAt)
+  assert.equal(recordedActor?.userId, owner.userId)
+  assert.equal(recordedActor?.organizationId, owner.organizationId)
+  assert.equal(recordedInput?.idempotencyKey, 'legal-test-acceptance-1')
+  assert.equal('acceptedAt' in (recordedInput ?? {}), false)
+  await app.close()
+})
+
+test('aceite incompleto ou falha de persistência nunca libera sucesso', async () => {
+  const incomplete = testApp({ recordAcceptances: async () => [] })
+  const response = await incomplete.inject({
+    method: 'POST', url: '/v1/legal/acceptances',
+    headers: { ...authHeaders(), 'idempotency-key': 'legal-incomplete-1' },
+    payload: legalAcceptancePayload(),
+  })
+  assert.equal(response.statusCode, 500)
+  await incomplete.close()
+
+  const invalid = testApp({ recordAcceptances: async (_actor, input) => {
+    if (!input.declarations.age18) {
+      throw new IdentityError('invalid_legal_acceptance', 'Maioridade obrigatória.', 409)
+    }
+    return []
+  } })
+  const payload = legalAcceptancePayload()
+  payload.declarations.age18 = false
+  const rejected = await invalid.inject({
+    method: 'POST', url: '/v1/legal/acceptances',
+    headers: { ...authHeaders(), 'idempotency-key': 'legal-invalid-1' }, payload,
+  })
+  assert.equal(rejected.statusCode, 409)
+  await invalid.close()
+})
+
+test('cancelamento recorrente exige gateway e retorna efeitos transparentes', async () => {
+  const unavailable = testApp()
+  const noGateway = await unavailable.inject({
+    method: 'POST', url: '/v1/billing/subscription/cancel',
+    headers: { ...authHeaders(), 'idempotency-key': 'cancel-no-gateway' },
+  })
+  assert.equal(noGateway.statusCode, 503)
+  await unavailable.close()
+
+  const app = testApp({ billingPortal: {
+    createPortal: async () => ({ url: 'https://example.invalid', expiresAt: '2026-07-16T04:00:00.000Z' }),
+    getSubscription: async () => ({
+      planName: 'Plano teste', status: 'active', priceMinor: 1000, currency: 'BRL', interval: 'month',
+      currentPeriodEnd: '2026-08-16T00:00:00.000Z', cancelAtPeriodEnd: false,
+      refundPolicy: '[POLÍTICA DE REEMBOLSO]',
+    }),
+    cancelSubscription: async () => ({
+      planName: 'Plano teste', requestedAt: '2026-07-16T03:00:00.000Z',
+      accessUntil: '2026-08-16T00:00:00.000Z', refundPolicy: '[POLÍTICA DE REEMBOLSO]',
+      dataEffects: '[VALIDAR]', canReactivate: true, notificationStatus: 'not_configured',
+    }),
+  } })
+  const cancelled = await app.inject({
+    method: 'POST', url: '/v1/billing/subscription/cancel',
+    headers: { ...authHeaders(), 'idempotency-key': 'cancel-configured-1' },
+  })
+  assert.equal(cancelled.statusCode, 200, cancelled.body)
+  assert.match(cancelled.json().confirmation, /renovação automática foi interrompida/)
+  assert.equal(cancelled.json().cancellation.notificationStatus, 'not_configured')
+  await app.close()
+})
+
+test('catalogo de planos vem do servidor mesmo antes de habilitar checkout', async () => {
+  const app = testApp()
+  const response = await app.inject({
+    method: 'GET', url: '/v1/billing/overview', headers: authHeaders(),
+  })
+  assert.equal(response.statusCode, 200, response.body)
+  const payload = response.json()
+  assert.equal(payload.configured, false)
+  assert.deepEqual(payload.overview.plans.map((plan: { planKey: string; priceMinor: number; monthlyEquivalentMinor: number }) => [plan.planKey, plan.priceMinor, plan.monthlyEquivalentMinor]), [
+    ['brasileirao', 1990, 1990],
+    ['todas-ligas', 3990, 3990],
+    ['brasileirao-anual', 17880, 1490],
+    ['todas-ligas-anual', 41880, 3490],
+  ])
+  assert.deepEqual(payload.overview.plans[0].entitlements.leagueIds, ['BRA'])
+  assert.deepEqual(payload.overview.plans[1].entitlements.leagueIds, ['BRA', 'PL', 'LL', 'L1', 'BUN'])
+  assert.equal(payload.overview.plans[2].savingsMinor, 6000)
+  assert.equal(payload.overview.plans[3].savingsMinor, 6000)
+  await app.close()
 })
 
 test('rotas administrativas apenas enfileiram e idempotência reaproveita o job', async () => {
@@ -221,6 +344,62 @@ test('métricas exigem credencial de serviço e não usam token de usuário', as
   await app.close()
 })
 
+test('workspace SaaS aplica permissao do servidor e nunca ativa alerta sem entrega', async () => {
+  const app = testApp()
+  const listed = await app.inject({ method: 'GET', url: '/v1/saved-queries', headers: authHeaders() })
+  assert.equal(listed.statusCode, 200)
+  assert.deepEqual(listed.json(), { queries: [] })
+  const alert = await app.inject({
+    method: 'POST', url: '/v1/alerts', headers: { ...authHeaders(), 'content-type': 'application/json' },
+    payload: { name: 'Mudanca relevante', channel: 'email' },
+  })
+  assert.equal(alert.statusCode, 201)
+  assert.equal(alert.json().status, 'paused')
+  assert.equal(alert.json().deliveryState, 'not_configured')
+  await app.close()
+
+  const viewerApp = testApp({ actor: { ...owner, role: 'viewer' } })
+  const forbidden = await viewerApp.inject({
+    method: 'POST', url: '/v1/saved-queries', headers: { ...authHeaders(), 'content-type': 'application/json' },
+    payload: { name: 'Nao autorizado', filters: { league: 'todas', period: 'todos', market: '1X2', query: '' } },
+  })
+  assert.equal(forbidden.statusCode, 403)
+  await viewerApp.close()
+})
+
+test('exportacao do titular nao usa cache e control plane exige allowlist adicional', async () => {
+  const app = testApp()
+  const exported = await app.inject({ method: 'GET', url: '/v1/privacy/export', headers: authHeaders() })
+  assert.equal(exported.statusCode, 200, exported.body)
+  assert.match(exported.headers['cache-control'] ?? '', /no-store/)
+  assert.equal(exported.json().schemaVersion, '1.0')
+  await app.close()
+
+  const tenantOwnerOnly = testApp({ platformAdminSubjects: [] })
+  const forbidden = await tenantOwnerOnly.inject({ method: 'GET', url: '/v1/admin/queues', headers: authHeaders() })
+  assert.equal(forbidden.statusCode, 403)
+  await tenantOwnerOnly.close()
+})
+
+test('suporte cria chamado pelo tenant sem aceitar campos extras', async () => {
+  const app = testApp()
+  const created = await app.inject({
+    method: 'POST', url: '/v1/support/tickets',
+    headers: { ...authHeaders(), 'content-type': 'application/json' },
+    payload: { category: 'privacy', severity: 'sev3', subject: 'Corrigir cadastro', description: 'O nome verificado precisa ser corrigido.' },
+  })
+  assert.equal(created.statusCode, 201, created.body)
+  assert.equal(created.json().category, 'privacy')
+  const invalid = await app.inject({
+    method: 'POST', url: '/v1/support/tickets',
+    headers: { ...authHeaders(), 'content-type': 'application/json' },
+    payload: { category: 'privacy', severity: 'sev3', subject: 'Corrigir cadastro', description: 'Descricao suficiente', email: 'pii@example.test' },
+  })
+  assert.equal(invalid.statusCode, 201)
+  assert.equal('email' in invalid.json(), false)
+  await app.close()
+})
+
 function testApp(options: {
   actor?: ActorContext
   environment?: string
@@ -233,6 +412,9 @@ function testApp(options: {
   databaseCheck?: () => Promise<unknown>
   redisCheck?: () => Promise<unknown>
   metricsBearerToken?: string
+  recordAcceptances?: LegalRepository['recordAcceptances']
+  billingPortal?: BillingPortalGateway
+  platformAdminSubjects?: string[]
 } = {}) {
   const actor = options.actor ?? owner
   const identityService = {
@@ -264,6 +446,71 @@ function testApp(options: {
       cancelSystemJob: async () => false,
       listQueueStatus: async () => [],
     },
+    legal: {
+      listDocuments: async () => legalDocuments(),
+      acceptanceStatus: async () => ({
+        requiresAcceptance: true,
+        requiredDocuments: legalDocuments(),
+        missingDocumentTypes: ['terms', 'privacy', 'risk'],
+      }),
+      recordAcceptances: options.recordAcceptances ?? (async (actor, input) => legalDocuments().map((document) => ({
+        id: randomUUID(), evidenceEventId: randomUUID(), userId: actor.userId,
+        organizationId: actor.organizationId, legalDocumentId: document.id,
+        documentType: document.type, documentVersion: document.version,
+        acceptanceGroup: document.acceptanceGroup, acceptancePurpose: input.purpose,
+        acceptedAt: new Date().toISOString(), contentHash: document.contentHash,
+        documentUrl: document.documentUrl, evidenceMetadata: {},
+      }))),
+      listAcceptances: async () => [],
+      findAcceptance: async () => null,
+    },
+    workspace: {
+      listSavedQueries: async () => [],
+      createSavedQuery: async (actor, name, filters) => ({
+        id: randomUUID(),
+        organizationId: actor.organizationId,
+        createdByUserId: actor.userId,
+        name,
+        filters,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }),
+      deleteSavedQuery: async () => false,
+      listAlertRules: async () => [],
+      createAlertRule: async (actor, input) => ({
+        id: randomUUID(),
+        organizationId: actor.organizationId,
+        createdByUserId: actor.userId,
+        savedQueryId: input.savedQueryId,
+        name: input.name,
+        channel: input.channel,
+        status: 'paused' as const,
+        deliveryState: 'not_configured' as const,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }),
+      deleteAlertRule: async () => false,
+    } satisfies WorkspaceRepository,
+    operations: {
+      createSupportTicket: async (actor, input) => ({
+        id: randomUUID(), ...input, status: 'open' as const,
+        ownerTeam: input.category === 'privacy' ? 'privacy' as const : 'support' as const,
+        slaDueAt: '2026-07-16T08:00:00.000Z', createdAt: '2026-07-16T00:00:00.000Z', updatedAt: '2026-07-16T00:00:00.000Z',
+      }),
+      listOwnSupportTickets: async () => [], listSupportTickets: async () => [],
+      updateSupportTicket: async () => null, listAudit: async () => [], listIncidents: async () => [],
+      createIncident: async () => { throw new Error('not_used') }, updateIncident: async () => null,
+    } satisfies OperationsRepository,
+    privacy: {
+      exportSubjectData: async (actor) => ({
+        schemaVersion: '1.0' as const, generatedAt: '2026-07-16T00:00:00.000Z', validUntil: '2026-07-16T00:05:00.000Z',
+        subject: { id: actor.userId }, organizations: [{ organizationId: actor.organizationId }], sessions: [],
+        legalAcceptances: [], savedQueries: [], alerts: [], supportTickets: [], exports: [], jobs: [], auditTrail: [], retentionNotices: [],
+      }),
+      planUserErasure: async () => ({ organizationIds: [], objectKeys: [] }), eraseUserActiveData: async () => undefined,
+      planOrganizationErasure: async () => ({ organizationIds: [], objectKeys: [] }), eraseOrganizationActiveData: async () => undefined,
+      expiredObjectKeys: async () => [], purgeExpired: async () => ({ sessions: 0, invitations: 0, exports: 0, supportTickets: 0, incidents: 0, jobs: 0 }),
+    } satisfies PrivacyRepository,
   } as unknown as PersistenceRepositories
   const dependencies: HttpServerDependencies = {
     connection: {
@@ -275,6 +522,7 @@ function testApp(options: {
     corsAllowedOrigins: ['http://localhost:5173'],
     requestIpHashKey: 'test-only-ip-hash-key',
     environment: options.environment ?? 'test',
+    platformAdminSubjects: options.platformAdminSubjects ?? ['auth0|fastify-test'],
     rateLimitMax: options.rateLimitMax,
     bodyLimit: options.bodyLimit,
     requestTimeoutMs: options.requestTimeoutMs,
@@ -282,8 +530,32 @@ function testApp(options: {
     logger: false,
     readinessRedis: options.redisCheck ? { ping: options.redisCheck } : undefined,
     metricsBearerToken: options.metricsBearerToken,
+    billingPortal: options.billingPortal,
   }
   return createBetIntelHttpServer(dependencies)
+}
+
+function legalDocuments() {
+  return [
+    { type: 'terms' as const, version: '0.9', hash: '1'.repeat(64), url: '/termos-de-uso' },
+    { type: 'privacy' as const, version: '0.1', hash: '2'.repeat(64), url: '/politica-de-privacidade' },
+    { type: 'risk' as const, version: '0.9', hash: '3'.repeat(64), url: '/termos-de-uso#aviso-essencial' },
+  ].map((item, index) => ({
+    id: `00000000-0000-4000-8000-00000000000${index + 1}`,
+    type: item.type, version: item.version, title: item.type, contentHash: item.hash,
+    documentUrl: item.url, acceptanceGroup: `${item.type}-${item.version}-material` as string,
+    changeKind: 'material' as const, changeSummary: 'Minuta inicial.', isActive: true,
+    createdAt: '2026-07-16T00:00:00.000Z',
+  }))
+}
+
+function legalAcceptancePayload() {
+  return {
+    purpose: 'first_access' as const,
+    documents: legalDocuments().map(({ type, version, contentHash }) => ({ type, version, contentHash })),
+    declarations: { age18: true, termsAndPrivacy: true, risk: true },
+    evidence: { origin: 'first_access' as const, riskVersion: '0.9', privacyVersion: '0.1' },
+  }
 }
 
 function authHeaders() {

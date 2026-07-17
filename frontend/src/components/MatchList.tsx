@@ -4,6 +4,8 @@ import type { MarketColumn } from '../lib/markets'
 import MatchRow from './MatchRow'
 import { ChartIcon, InfoIcon } from './Icons'
 import styles from './MatchList.module.css'
+import RiskWarning from './RiskWarning'
+import AsyncState from './AsyncState'
 
 interface MatchListProps {
   matches: Match[]
@@ -15,6 +17,8 @@ interface MatchListProps {
   demoMode: boolean
   backendError: string | null
   onView: (id: string) => void
+  loading: boolean
+  onRetry: () => void
 }
 
 export default function MatchList({
@@ -27,6 +31,8 @@ export default function MatchList({
   demoMode,
   backendError,
   onView,
+  loading,
+  onRetry,
 }: MatchListProps) {
   const n = def.length
   const cw = n >= 3 ? 66 : 80
@@ -36,7 +42,7 @@ export default function MatchList({
   const headerStyle: CSSProperties = { gridTemplateColumns: gridTemplate }
 
   return (
-    <main id="matchlist" className={styles.main}>
+    <main id="matchlist" tabIndex={-1} className={styles.main}>
       <div className={styles.inner}>
         {/* Intro */}
         <div className={styles.intro}>
@@ -49,22 +55,25 @@ export default function MatchList({
               ? 'Amostra visual com confrontos e probabilidades simulados para apresentação.'
               : 'Analises educacionais baseadas em fixtures reais, historico local e padroes estatisticos.'}
           </p>
-          <div className={`${styles.dataState} ${usingFallback || backendError ? styles.dataWarn : styles.dataOk}`}>
-            {demoMode
-              ? 'Modo demonstração: dados simulados, sem conexão com casas de apostas.'
-              : backendError
-              ? backendError
-              : usingFallback
-                ? 'Fixture simulada recebida do backend e ocultada no modo de dados reais'
-                : 'Dados reais carregados do backend local'}
+          <div className={styles.metaRow}>
+            <div className={`${styles.dataState} ${usingFallback || backendError ? styles.dataWarn : styles.dataOk}`}>
+              {demoMode
+                ? 'Modo demonstração: dados simulados, sem conexão com casas de apostas.'
+                : backendError
+                ? backendError
+                : usingFallback
+                  ? 'Fixture simulada recebida do backend e ocultada no modo de dados reais'
+                  : 'Dados reais carregados do backend local'}
+            </div>
+            <div className={styles.marketRow}>
+              <span className={styles.marketRowLabel}>Mercado em exibição</span>
+              <span className={styles.marketBadge}>
+                <ChartIcon size={12} color="currentColor" strokeWidth={2.2} />
+                {marketLabel}
+              </span>
+            </div>
           </div>
-          <div className={styles.marketRow}>
-            <span className={styles.marketRowLabel}>Mercado em exibição</span>
-            <span className={styles.marketBadge}>
-              <ChartIcon size={12} color="currentColor" strokeWidth={2.2} />
-              {marketLabel}
-            </span>
-          </div>
+          <RiskWarning variant="analysis" className={styles.inlineRisk} />
         </div>
 
         {/* Table header */}
@@ -94,19 +103,19 @@ export default function MatchList({
         ))}
 
         {matches.length === 0 && (
-          <div className={styles.empty}>
-            {backendOffline
-              ? 'Nenhum jogo real carregado. Inicie o backend em http://127.0.0.1:3333 e verifique API_FOOTBALL_KEY.'
+          <div className={styles.stateSlot}>
+            {loading
+              ? <AsyncState kind="loading" title="Carregando jogos" detail="Consultando fixtures e predicoes sem usar dados de preenchimento." />
               : backendError
-                ? backendError
-              : 'Nenhum jogo encontrado para os filtros selecionados.'}
+                ? <AsyncState kind="error" title={backendOffline ? 'Backend indisponivel' : 'Dados nao carregados'} detail={backendError} action={{ label: 'Tentar novamente', onClick: onRetry }} />
+                : <AsyncState kind="empty" title="Nenhum jogo encontrado" detail="A API nao retornou jogos para os filtros e o periodo selecionados." />}
           </div>
         )}
 
         {/* Footer disclaimer */}
         <div className={styles.footer}>
           <InfoIcon size={13} color="#5e656f" />
-          Probabilidades estimadas. Não são recomendações financeiras.
+          Probabilidades estimadas. Não são certezas nem recomendações de aposta ou financeiras. Eventos esportivos são imprevisíveis.
         </div>
       </div>
     </main>

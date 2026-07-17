@@ -16,6 +16,7 @@ declare module 'fastify' {
   interface FastifyContextConfig {
     public?: boolean
     permission?: Permission
+    platformAdmin?: boolean
     requestTimeoutMs?: number
   }
 

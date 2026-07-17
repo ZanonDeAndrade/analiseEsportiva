@@ -93,7 +93,7 @@ Promessas proibidas:
 - recomendação de aposta ou seleção “melhor”;
 - superioridade preditiva antes de um teste temporal bloqueado;
 - dados “em tempo real” sem SLA e cobertura contratados;
-- associação oficial com ligas, clubes, FIFA ou casas de apostas.
+- associação oficial com ligas, clubes, federações ou casas de apostas.
 
 ## 5. Hipóteses de preço
 
@@ -131,7 +131,6 @@ Regra econômica de `go`: receita mensal recorrente contratada deve cobrir dados
 
 - API-Football: os termos dizem expressamente que o serviço não fornece licença de uso e publicação dos dados e transfere ao usuário a obrigação de obter permissões dos titulares de direitos. Também alertam para restrições em mídia, fantasy e apostas ([termos](https://www.api-football.com/terms)). **Status: não liberado para SaaS comercial.**
 - Football-Data.co.uk: a página descreve os arquivos como gratuitos, atribui sua compilação a várias fontes e declara que os dados são disponibilizados para previsão de partidas de liga ([página da fonte](https://www.football-data.co.uk/data.php)). Isso não é evidência suficiente de licença comercial de armazenamento, transformação e redistribuição. **Status: autorização escrita necessária.**
-- FIFA e Copa do Mundo: a FIFA informa que conteúdo e estatísticas de FIFA.com podem ser usados por terceiros em contexto puramente editorial e não comercial, com crédito; marcas e materiais protegidos exigem autorização ([orientação oficial](https://legal.fifa.com/organisation/contact-fifa/legal-branding-and-rights)). **Status: não usar como base comercial sem licença.**
 - Logos, imagens e marcas: permanecem proibidos no produto; nomes, marcas de competição e alegação de associação oficial devem ser revisados por especialista.
 - Dados derivados: probabilidades, agregados e features não devem ser presumidos livres de restrição. O contrato precisa dizer se derivados podem ser exibidos, exportados e retidos após o término.
 
@@ -140,7 +139,7 @@ Regra econômica de `go`: receita mensal recorrente contratada deve cobrir dados
 Obter resposta contratual escrita, por fonte, para:
 
 - direito de coletar por API ou download automatizado;
-- campos e competições cobertos, inclusive Copa do Mundo 2026;
+- campos e competições cobertos pelo contrato;
 - armazenamento, região, criptografia, backup e prazo de retenção;
 - uso em treinamento, avaliação e geração de dados derivados;
 - exibição a usuários finais e exportação em CSV, imagem, texto ou API;
@@ -167,7 +166,7 @@ Esta seção lista questões; não responde juridicamente a elas.
 6. Há obrigação de verificação etária mesmo sem aposta, depósito, odds ou recomendação?
 7. Quais regras do Código de Defesa do Consumidor incidem sobre métricas, disponibilidade, renovação e alegações de IA?
 8. Que licenças são necessárias para resultados, calendário, nomes de equipes, competições, estatísticas e dados derivados?
-9. O uso comercial das expressões relacionadas à Copa do Mundo ou de nomes de competições cria risco de marca, concorrência desleal ou associação indevida?
+9. O uso comercial de nomes de competições cria risco de marca, concorrência desleal ou associação indevida?
 10. Quais documentos e registros são necessários para demonstrar que o produto não é operador, afiliado nem tipster?
 11. Quais limites se aplicam a clientes estrangeiros ou à oferta fora do Brasil?
 12. Como responder a ordens de remoção, reclamações de titular de direitos e mudanças regulatórias?

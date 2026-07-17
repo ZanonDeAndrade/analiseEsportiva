@@ -15,7 +15,7 @@ test('dados de screenshot exigem modo demo explícito e não substituem a API', 
 
   assert.match(app, /get\('demo'\) === '1'/)
   assert.match(app, /SCREENSHOT_DEMO_MODE \? screenshotMatches : \[\]/)
-  assert.match(app, /loadBackendMatches\(getAccessTokenSilently, false\)/)
+  assert.match(app, /loadBackendMatches\(getAccessTokenSilently, \{ forceRefresh, signal: controller\.signal \}\)/)
   assert.match(main, /screenshotDemoMode \? \(/)
   assert.match(data, /const SCREENSHOT_MATCH_IDS = new Set\(\['m1', 'm4', 'm6', 'm10'\]\)/)
   assert.match(data, /Não participa do carregamento normal e nunca funciona como fallback da API/)

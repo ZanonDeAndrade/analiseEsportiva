@@ -36,7 +36,7 @@ Cartoes:
 
 ## Disponibilidade
 
-Cada mercado e treinado somente quando ha amostra minima. O sistema segmenta por liga, temporada e competicao. Para Copa do Mundo 2026, o segmento esperado e `World Cup 2026::2026`.
+Cada mercado e treinado somente quando ha amostra minima. O sistema segmenta por liga, temporada e competicao.
 
 ## Resposta de Predicao
 

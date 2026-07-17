@@ -7,7 +7,7 @@ Use ao alterar sincronizacao, providers, cache local ou fontes de dados.
 ## Procedimento
 
 1. Confirmar se `API_FOOTBALL_KEY` esta configurada.
-2. Para Copa 2026 usar `league=1` e `season=2026`.
+2. Usar somente as ligas configuradas pelo adaptador.
 3. Salvar fixtures e resultados em `backend/data`.
 4. Usar Football-Data.co.uk para historico.
 5. Remover/ignorar odds.

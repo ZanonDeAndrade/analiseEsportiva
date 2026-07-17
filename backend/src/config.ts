@@ -13,6 +13,15 @@ export interface ValidatedRuntimeConfiguration {
   role: RuntimeRole
 }
 
+export type SportsProviderName = 'api-football' | 'football-data' | 'football-data-org'
+
+export interface ProviderUseConfiguration {
+  provider: SportsProviderName
+  policyReference: string
+  licenseReference: string
+  allowedEnvironments: DeploymentEnvironment[]
+}
+
 /**
  * Validates every setting needed by a process before it opens sockets or
  * connections. Secret values are never included in validation errors.
@@ -38,6 +47,8 @@ export function validateRuntimeConfiguration(
     httpRateLimitWindow()
     redisUrl()
     metricsBearerToken()
+    platformAdminSubjects()
+    piiFieldEncryptionConfig()
   }
 
   if (role === 'worker') {
@@ -46,11 +57,21 @@ export function validateRuntimeConfiguration(
     workerPollIntervalMs()
     providerQuotaConfig('api-football')
     providerQuotaConfig('football-data')
+    providerQuotaConfig('football-data-org')
+    piiFieldEncryptionConfig()
+    if (process.env.API_FOOTBALL_KEY?.trim()) providerUseConfiguration('api-football')
+    if (process.env.BETINTEL_ENABLE_FOOTBALL_DATA === 'true') {
+      providerUseConfiguration('football-data')
+    }
+    if (process.env.FOOTBALL_DATA_ORG_API_KEY?.trim()) {
+      providerUseConfiguration('football-data-org')
+    }
   }
 
   if (role === 'scheduler') {
     schedulerDatabaseUrl()
     schedulerIntervalMs()
+    piiFieldEncryptionConfig()
   }
 
   if (environment === 'staging' || environment === 'production') {
@@ -233,6 +254,31 @@ export function metricsBearerToken() {
   return value
 }
 
+export function platformAdminSubjects() {
+  const values = process.env.PLATFORM_ADMIN_SUBJECTS?.split(',').map((value) => value.trim()).filter(Boolean) ?? []
+  if (values.length === 0 && isDeployedEnvironment()) {
+    throw new Error('PLATFORM_ADMIN_SUBJECTS e obrigatoria no deploy da API.')
+  }
+  if (values.some((value) => value.length > 255 || /[\r\n]/.test(value))) {
+    throw new Error('PLATFORM_ADMIN_SUBJECTS contem identificador invalido.')
+  }
+  return values
+}
+
+export function piiFieldEncryptionConfig() {
+  const configured = process.env.PII_FIELD_ENCRYPTION_KEY?.trim()
+  if (!configured && isDeployedEnvironment()) {
+    throw new Error('PII_FIELD_ENCRYPTION_KEY e obrigatoria fora do ambiente local.')
+  }
+  const keyBase64 = configured || Buffer.alloc(32, 17).toString('base64')
+  if (Buffer.from(keyBase64, 'base64').length !== 32) {
+    throw new Error('PII_FIELD_ENCRYPTION_KEY deve conter 32 bytes em base64.')
+  }
+  const keyVersion = process.env.PII_FIELD_ENCRYPTION_KEY_VERSION?.trim() || 'local-development-only'
+  if (!/^[A-Za-z0-9._-]{1,40}$/.test(keyVersion)) throw new Error('PII_FIELD_ENCRYPTION_KEY_VERSION invalida.')
+  return { keyBase64, keyVersion }
+}
+
 export function redisUrl() {
   const value = process.env.REDIS_URL?.trim()
   if (!value && isDeployedEnvironment()) {
@@ -265,12 +311,54 @@ export function schedulerIntervalMs() {
   return positiveIntegerEnvironment('INGESTION_SCHEDULER_INTERVAL_MS', 60 * 60_000, 31 * 24 * 60 * 60_000)
 }
 
-export function providerQuotaConfig(provider: 'api-football' | 'football-data') {
-  const prefix = provider === 'api-football' ? 'API_FOOTBALL' : 'FOOTBALL_DATA'
+export function providerQuotaConfig(provider: SportsProviderName) {
+  const prefix = providerEnvironmentPrefix(provider)
   const daily = positiveIntegerEnvironment(`${prefix}_DAILY_QUOTA`, provider === 'api-football' ? 100 : 1_000)
   const monthly = positiveIntegerEnvironment(`${prefix}_MONTHLY_QUOTA`, provider === 'api-football' ? 3_000 : 30_000)
   const alertPercentage = positiveIntegerEnvironment('PROVIDER_QUOTA_ALERT_PERCENT', 80, 100)
   return { daily, monthly, alertPercentage }
+}
+
+/**
+ * Configuracao operacional declarada pelo responsavel pelo deploy. Os valores
+ * sao referencias opacas e nao representam validacao ou parecer juridico.
+ */
+export function providerUseConfiguration(provider: SportsProviderName): ProviderUseConfiguration {
+  const prefix = providerEnvironmentPrefix(provider)
+  const policyReference = requiredEnvironment(`${prefix}_USE_POLICY_REFERENCE`)
+  const licenseReference = requiredEnvironment(`${prefix}_LICENSE_REFERENCE`)
+  const allowedEnvironments = requiredEnvironment(`${prefix}_ALLOWED_ENVIRONMENTS`)
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter((value): value is DeploymentEnvironment =>
+      DEPLOYMENT_ENVIRONMENTS.has(value as DeploymentEnvironment),
+    )
+  const environment = deploymentEnvironment()
+  if (allowedEnvironments.length === 0) {
+    throw new Error(`${prefix}_ALLOWED_ENVIRONMENTS nao contem ambiente valido.`)
+  }
+  if (!allowedEnvironments.includes(environment)) {
+    throw new Error(`Uso de ${provider} nao foi habilitado para ${environment}.`)
+  }
+  return { provider, policyReference, licenseReference, allowedEnvironments }
+}
+
+function providerEnvironmentPrefix(provider: SportsProviderName) {
+  if (provider === 'api-football') return 'API_FOOTBALL'
+  if (provider === 'football-data-org') return 'FOOTBALL_DATA_ORG'
+  return 'FOOTBALL_DATA'
+}
+
+export function fixtureFreshnessMs(status?: string) {
+  const live = new Set(['live', 'halftime', 'extra_time', 'penalties'])
+  if (live.has(status ?? '')) {
+    return positiveIntegerEnvironment('SPORTS_LIVE_FRESHNESS_MS', 5 * 60_000, 24 * 60 * 60_000)
+  }
+  return positiveIntegerEnvironment('SPORTS_FIXTURE_FRESHNESS_MS', 6 * 60 * 60_000, 7 * 24 * 60 * 60_000)
+}
+
+export function providerSnapshotCacheTtlMs() {
+  return positiveIntegerEnvironment('SPORTS_PROVIDER_CACHE_TTL_MS', 60_000, 60 * 60_000)
 }
 
 /** Numero de dias a frente que devem ser carregados (rolante, padrao 7). */

@@ -64,6 +64,41 @@
       "when": 1784150000000,
       "tag": "0008_observability_trace_context",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784165463843,
+      "tag": "0009_legal_acceptance",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784168358252,
+      "tag": "0010_overjoyed_yellow_claw",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1784169755099,
+      "tag": "0011_curious_wolfpack",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1784171811603,
+      "tag": "0012_sharp_christian_walker",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1784174041483,
+      "tag": "0013_breezy_next_avengers",
+      "breakpoints": true
     }
   ]
 }

@@ -2,7 +2,7 @@
 
 export type Result = 'V' | 'E' | 'D'
 export type Confidence = 'Baixa' | 'Média' | 'Alta'
-export type LeagueId = 'BRA' | 'PL' | 'LL' | 'L1' | 'BUN' | 'WC2026'
+export type LeagueId = 'BRA' | 'PL' | 'LL' | 'L1' | 'BUN'
 export type Period = 'hoje' | 'amanha' | '7dias'
 
 /** A single past result shown in the "Últimos 5 jogos" panel. */
@@ -64,12 +64,27 @@ export interface Match {
   updatedAt?: string
   sampleSize?: number
   ethicalNotice?: string
+  modelVersion?: string
+  datasetVersion?: string
+  codeVersion?: string
+  featureSetVersion?: string
+  modelPeriod?: { from: string; to: string }
+  limitations?: string[]
   availableMarkets?: Array<{
     market: string
     displayName: string
     sampleSize: number
     confidence: string
-    selections: Array<{ key: string; label: string; probability: number }>
+    sourceSegment: string
+    period: { from: string; to: string }
+    modelVersion: string
+    limitations: string[]
+    selections: Array<{
+      key: string
+      label: string
+      probability: number
+      uncertainty: { lower: number; upper: number; level: 0.95; method: 'wilson' }
+    }>
   }>
   ignoredMarkets?: Array<{
     market: string

@@ -12,6 +12,11 @@ export type IdentityErrorCode =
   | 'ownership_transfer_required'
   | 'identity_provider_unavailable'
   | 'invalid_request'
+  | 'invalid_legal_acceptance'
+  | 'legal_acceptance_failed'
+  | 'legal_documents_unavailable'
+  | 'invalid_state'
+  | 'object_storage_unavailable'
 
 export class IdentityError extends Error {
   constructor(

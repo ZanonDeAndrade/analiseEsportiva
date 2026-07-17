@@ -20,11 +20,26 @@ const MANAGED_KEYS = [
   'AUTH0_SPA_CLIENT_ID',
   'CORS_ALLOWED_ORIGINS',
   'REQUEST_IP_HASH_KEY',
+  'PII_FIELD_ENCRYPTION_KEY',
+  'PII_FIELD_ENCRYPTION_KEY_VERSION',
+  'PLATFORM_ADMIN_SUBJECTS',
   'APP_RELEASE',
   'OTEL_SERVICE_NAME',
   'OTEL_EXPORTER_OTLP_ENDPOINT',
   'SENTRY_DSN',
   'METRICS_BEARER_TOKEN',
+  'API_FOOTBALL_KEY',
+  'API_FOOTBALL_USE_POLICY_REFERENCE',
+  'API_FOOTBALL_LICENSE_REFERENCE',
+  'API_FOOTBALL_ALLOWED_ENVIRONMENTS',
+  'FOOTBALL_DATA_USE_POLICY_REFERENCE',
+  'FOOTBALL_DATA_LICENSE_REFERENCE',
+  'FOOTBALL_DATA_ALLOWED_ENVIRONMENTS',
+  'FOOTBALL_DATA_ORG_API_KEY',
+  'FOOTBALL_DATA_ORG_USE_POLICY_REFERENCE',
+  'FOOTBALL_DATA_ORG_LICENSE_REFERENCE',
+  'FOOTBALL_DATA_ORG_ALLOWED_ENVIRONMENTS',
+  'BETINTEL_ENABLE_FOOTBALL_DATA',
 ] as const
 
 test('migration valida somente o ambiente e o banco necessarios', () => {
@@ -50,6 +65,8 @@ test('worker implantado exige banco dedicado e Redis remoto', () => {
     BULLMQ_REDIS_URL: 'rediss://production-queue.internal:6379',
     REDIS_KEY_PREFIX: 'betintel:production',
     ...deployedTelemetry('worker'),
+    ...deployedPrivacy(),
+    BETINTEL_ENABLE_FOOTBALL_DATA: 'false',
   }
   withEnvironment(base, () => {
     assert.equal(validateRuntimeConfiguration('worker').role, 'worker')
@@ -59,6 +76,58 @@ test('worker implantado exige banco dedicado e Redis remoto', () => {
       () => validateRuntimeConfiguration('worker'),
       /papel PostgreSQL dedicado/,
     )
+  })
+})
+
+test('worker exige referencias explicitas de uso quando provedor esta habilitado', () => {
+  const base = {
+    NODE_ENV: 'production',
+    BETINTEL_ENVIRONMENT: 'production',
+    DATABASE_URL: 'postgresql://api@production-db.internal/betintel',
+    WORKER_DATABASE_URL: 'postgresql://worker@production-db.internal/betintel',
+    BULLMQ_REDIS_URL: 'rediss://production-queue.internal:6379',
+    REDIS_KEY_PREFIX: 'betintel:production',
+    API_FOOTBALL_KEY: 'secret-not-logged',
+    BETINTEL_ENABLE_FOOTBALL_DATA: 'false',
+    ...deployedTelemetry('worker'),
+    ...deployedPrivacy(),
+  }
+  withEnvironment(base, () => {
+    assert.throws(() => validateRuntimeConfiguration('worker'), /API_FOOTBALL_USE_POLICY_REFERENCE/)
+  })
+  withEnvironment({
+    ...base,
+    API_FOOTBALL_USE_POLICY_REFERENCE: 'policy-2026-07',
+    API_FOOTBALL_LICENSE_REFERENCE: 'contract-inventory-42',
+    API_FOOTBALL_ALLOWED_ENVIRONMENTS: 'production',
+  }, () => {
+    assert.equal(validateRuntimeConfiguration('worker').role, 'worker')
+  })
+})
+
+test('football-data.org exige referencias explicitas sem inferir licenca', () => {
+  const base = {
+    NODE_ENV: 'production',
+    BETINTEL_ENVIRONMENT: 'production',
+    DATABASE_URL: 'postgresql://api@production-db.internal/betintel',
+    WORKER_DATABASE_URL: 'postgresql://worker@production-db.internal/betintel',
+    BULLMQ_REDIS_URL: 'rediss://production-queue.internal:6379',
+    REDIS_KEY_PREFIX: 'betintel:production',
+    FOOTBALL_DATA_ORG_API_KEY: 'secret-not-logged',
+    BETINTEL_ENABLE_FOOTBALL_DATA: 'false',
+    ...deployedTelemetry('worker'),
+    ...deployedPrivacy(),
+  }
+  withEnvironment(base, () => {
+    assert.throws(() => validateRuntimeConfiguration('worker'), /FOOTBALL_DATA_ORG_USE_POLICY_REFERENCE/)
+  })
+  withEnvironment({
+    ...base,
+    FOOTBALL_DATA_ORG_USE_POLICY_REFERENCE: 'review-record-2026-07',
+    FOOTBALL_DATA_ORG_LICENSE_REFERENCE: 'account-plan-inventory-18',
+    FOOTBALL_DATA_ORG_ALLOWED_ENVIRONMENTS: 'production',
+  }, () => {
+    assert.equal(validateRuntimeConfiguration('worker').role, 'worker')
   })
 })
 
@@ -92,7 +161,16 @@ function deployedApiEnvironment() {
     CORS_ALLOWED_ORIGINS: 'https://app.betintel.test',
     REQUEST_IP_HASH_KEY: '0123456789abcdef0123456789abcdef',
     METRICS_BEARER_TOKEN: '0123456789abcdef0123456789abcdef',
+    PLATFORM_ADMIN_SUBJECTS: 'auth0|platform-admin',
+    ...deployedPrivacy(),
     ...deployedTelemetry('api'),
+  }
+}
+
+function deployedPrivacy() {
+  return {
+    PII_FIELD_ENCRYPTION_KEY: Buffer.from('0123456789abcdef0123456789abcdef').toString('base64'),
+    PII_FIELD_ENCRYPTION_KEY_VERSION: 'prod-v1',
   }
 }
 

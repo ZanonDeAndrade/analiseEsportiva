@@ -5,6 +5,41 @@
   padding: 16px 12px 28px;
 }
 
+.productNav { display: grid; gap: 4px; }
+.sidebarOrganization { display: none; gap: 6px; margin: 0 8px 14px; }
+.sidebarOrganization span { color: var(--muted-3); font: 700 9px/1 var(--font-data); letter-spacing: .1em; text-transform: uppercase; }
+.sidebarOrganization select { width: 100%; border: 1px solid var(--border-mid); border-radius: 7px; padding: 8px; background: var(--bg-input); color: var(--text-2); }
+.navCode {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  color: var(--signal, #ff8c42);
+  font: 700 10px/1 var(--font-data, ui-monospace, monospace);
+}
+
+/* Icone de navegacao: sem a caixa do badge de letra — o icone respira, e a cor
+   dele ja distingue ativo/inativo. */
+.navIcon {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* Brasao da competicao: um pouco maior que o dot antigo, para a silhueta ler. */
+.crest {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.filterDivider { height: 1px; margin: 18px 8px 12px; background: var(--border-soft); }
+
 .sectionLabel {
   font-size: 10px;
   letter-spacing: 0.12em;
@@ -20,7 +55,7 @@
 .group {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   margin-bottom: 22px;
 }
 
@@ -75,6 +110,9 @@
   }
   .sidebar.open {
     transform: none;
+  }
+  .sidebarOrganization {
+    display: grid;
   }
   .mobileHeader {
     display: flex;

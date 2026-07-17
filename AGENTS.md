@@ -38,14 +38,12 @@ npm run backend:serve
 - Nao trate cartoes ou escanteios como obrigatorios para todo CSV.
 - Retorne `dados_insuficientes` para mercado sem coluna ou amostra.
 - Use `API_FOOTBALL_KEY` somente por variavel de ambiente.
-- Para Copa 2026 use `league=1`, `season=2026` e segmento `World Cup 2026`.
 
 ## Checklist de Entrega
 
 - Build sem erro.
 - Testes passando.
 - Filtros funcionando.
-- Copa do Mundo 2026 no frontend.
 - Painel de analise atualizando.
 - Layout legivel em desktop e mobile.
 - Aviso etico visivel.

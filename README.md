@@ -4,6 +4,19 @@ BetIntel AI e uma plataforma academica de analise probabilistica de futebol. O p
 
 O sistema nao e casa de apostas, nao recomenda aposta financeira e nao promete lucro. Todas as probabilidades sao estimativas educacionais. Aviso obrigatorio: "Analise baseada em dados historicos. Nao garante resultado."
 
+Os documentos jurídicos digitais, o clickwrap, o versionamento e a evidência de aceite estão descritos em [`docs/legal-implementation.md`](docs/legal-implementation.md). As páginas públicas começam em `/termos-de-uso`; tratam-se de minutas sujeitas à revisão jurídica, e o billing permanece bloqueado até validação comercial, jurídica, fiscal e operacional.
+
+A experiência autenticada, os fluxos de organização, conta, consultas, exportação,
+billing transparente e a estratégia de atualização sem polling agressivo estão em
+[`docs/frontend-saas.md`](docs/frontend-saas.md).
+
+Controles técnicos de privacidade, direitos do titular, retenção e backups estão em
+[`docs/privacy-lgpd-controls.md`](docs/privacy-lgpd-controls.md). Suporte, SLA,
+escalonamento e operação diária estão em
+[`docs/support-operations.md`](docs/support-operations.md), com procedimentos em
+[`docs/operations-runbooks.md`](docs/operations-runbooks.md). Nenhum desses documentos
+substitui revisão jurídica, contábil ou comercial.
+
 ## Stack
 
 - React + Vite + TypeScript
@@ -38,6 +51,7 @@ Staging e production recebem configuracao do secret manager, nunca de arquivo.
 
 ```bash
 API_FOOTBALL_KEY=
+FOOTBALL_DATA_ORG_API_KEY=
 BETINTEL_BACKEND_PORT=3333
 DATABASE_URL=postgresql://betintel:senha@127.0.0.1:5432/betintel
 DATABASE_POOL_MAX=10
@@ -153,6 +167,27 @@ npm run test:evals
 
 ## Pipeline de Dados e Modelo
 
+A operação de produção usa adaptadores por provedor, identidade canônica, manifesto por dataset, revisões de resultado e bloqueio de dados vencidos. O runbook completo está em [docs/sports-data-operations.md](docs/sports-data-operations.md).
+
+A avaliação temporal, baselines obrigatórias, calibração, rastreabilidade, drift e o ciclo champion/challenger estão documentados em [docs/modelo-ml.md](docs/modelo-ml.md).
+
+Antes de habilitar uma fonte, configure referências internas explícitas (não são parecer jurídico):
+
+```env
+API_FOOTBALL_USE_POLICY_REFERENCE=policy-interna-2026-07
+API_FOOTBALL_LICENSE_REFERENCE=inventario-contrato-42
+API_FOOTBALL_ALLOWED_ENVIRONMENTS=staging,production
+FOOTBALL_DATA_USE_POLICY_REFERENCE=policy-interna-2026-07
+FOOTBALL_DATA_LICENSE_REFERENCE=inventario-fonte-17
+FOOTBALL_DATA_ALLOWED_ENVIRONMENTS=staging,production
+BETINTEL_ENABLE_FOOTBALL_DATA=true
+FOOTBALL_DATA_ORG_USE_POLICY_REFERENCE=policy-interna-2026-07
+FOOTBALL_DATA_ORG_LICENSE_REFERENCE=inventario-fonte-18
+FOOTBALL_DATA_ORG_ALLOWED_ENVIRONMENTS=staging,production
+```
+
+Não existe fallback fictício em produção. Fixtures vencidas continuam auditáveis no banco, mas são bloqueadas na apresentação como atuais.
+
 ```bash
 npm run backend:sync
 npm run backend:train
@@ -160,12 +195,39 @@ npm run backend:evaluate
 npm run backend:backtest
 ```
 
-- `backend:sync`: usa API-Football quando `API_FOOTBALL_KEY` existe, busca CSVs historicos do Football-Data.co.uk e persiste no PostgreSQL.
+- `backend:sync`: usa API-Football e/ou football-data.org quando as respectivas chaves existem, busca CSVs historicos do Football-Data.co.uk e persiste no PostgreSQL.
 - `backend:sync -- --api-history-years 5`: define quantos anos historicos da API-Football entram no treino.
 - `backend:sync -- --skip-api-history`: sincroniza fixtures atuais sem baixar historico da API-Football.
 - `backend:train`: treina frequencias historicas por mercado e segmento.
-- `backend:evaluate`: calcula accuracy por selecao, brier score e cobertura.
-- `backend:backtest`: executa backtesting temporal simples.
+- `backend:evaluate`: avalia temporalmente o challenger, registra baselines/Brier/calibracao e aplica o gate de promocao.
+- `backend:backtest`: executa backtesting walk-forward e o associa ao modelo/dataset versionados.
+
+### Pipeline offline (modo academico, somente CSV)
+
+Para reproduzir o pipeline **sem PostgreSQL, Redis ou Auth0** — usando apenas um
+arquivo CSV — rode qualquer um dos comandos offline. Eles carregam o CSV,
+constroem as features, treinam o modelo e imprimem um resumo no terminal:
+
+```bash
+npm run backend:pipeline:offline     # treino + avaliacao no dataset local
+npm run backend:train:offline
+npm run backend:evaluate:offline
+npm run backend:backtest:offline
+```
+
+- Por padrao usam `backend/data/combined-results.csv`. Informe outro arquivo com
+  `-- --csv <arquivo>` (por exemplo, um recorte menor para o backtest, que é
+  O(n²) e fica lento no dataset completo).
+- Salve o resultado (modelo, avaliação ou backtest) em JSON com
+  `-- --output <arquivo.json>`. Sem `--output`, nada é gravado em disco — o modo
+  offline **não** escreve em `backend/artifacts`.
+- Ajuste a amostra mínima por mercado com `-- --min-rows <n>` (padrão 5).
+- As datas do CSV são normalizadas para ISO 8601 (aceita ISO e `DD/MM/AAAA`),
+  então fontes com formatos diferentes podem ser misturadas no mesmo arquivo.
+
+Quando `--csv` **não** é informado, os comandos usam o fluxo PostgreSQL versionado
+e exigem `DATABASE_URL`; sem ela, o CLI encerra com uma mensagem orientando o modo
+offline, sem stack trace.
 
 ## Como Melhorar a Acuracia
 
@@ -193,7 +255,8 @@ Mais dados por time e competicao tendem a melhorar a estabilidade das estimativa
 
 ## Fontes de Dados
 
-- API-Football / API-Sports: `https://v3.football.api-sports.io`, com Copa do Mundo 2026 em `league=1` e `season=2026`.
+- API-Football / API-Sports: `https://v3.football.api-sports.io`, usando as ligas configuradas no adaptador.
+- football-data.org API v4: jogos atuais via `/v4/matches`, autenticados no servidor por `FOOTBALL_DATA_ORG_API_KEY`.
 - Football-Data.co.uk: CSVs historicos com colunas como `FTHG`, `FTAG`, `FTR`, `HC`, `AC`, `HY`, `AY`, `HR`, `AR`.
 - Opta / Stats Perform: fonte profissional e licenciada. Pode ser integrada se houver contrato, API key e documentacao de endpoints liberados para o projeto.
 
@@ -228,7 +291,6 @@ Para jogos atuais, configure `API_FOOTBALL_KEY`, rode `npm run backend:sync` e i
 
 Por padrao, a busca de fixtures e uma janela rolante de hoje ate hoje + `BETINTEL_FIXTURE_DAYS` (padrao 7 dias). Defina `BETINTEL_FIXTURE_TO=YYYY-MM-DD` para fixar uma data final (tem prioridade sobre a janela em dias). Competicoes alvo:
 
-- Copa do Mundo 2026 (`league=1`, `season=2026`)
 - Brasileirao Serie A (`league=71`, `season=2026`)
 - Premier League (`league=39`, `season=2026`)
 - La Liga (`league=140`, `season=2026`)
@@ -289,7 +351,7 @@ Esses arquivos documentam objetivo, requisitos, criterios de aceite, arquitetura
 
 ## Limitacoes
 
-- Sem acesso a uma fonte real de fixtures futuras, a aplicacao mostra estado vazio/aviso. Dados simulados existem apenas no modo visual explicito `?demo=1` do frontend.
+- Sem acesso a uma fonte real de fixtures futuras, a aplicacao mostra estado vazio/aviso. Dados simulados existem apenas no modo visual `?demo=1` de builds locais de desenvolvimento; esse modo é removido do comportamento de produção.
 - O modelo atual usa frequencias historicas segmentadas, nao uma rede neural profunda.
 - Dados de cartoes e escanteios dependem da disponibilidade real nas fontes.
 - O projeto tem finalidade academica e educacional.

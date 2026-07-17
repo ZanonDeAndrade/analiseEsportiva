@@ -9,7 +9,7 @@ import type {
   JobProcessor,
 } from '../../infrastructure/queue/workerRuntime.js'
 import { syncData } from '../../syncData.js'
-import { trainModel } from '../../training.js'
+import { DEFAULT_MLOPS_SEED, trainModel } from '../../training.js'
 import type { PersistenceRepositories } from '../ports/persistence.js'
 import {
   SystemJobTypes,
@@ -17,6 +17,8 @@ import {
   type SystemJobType,
 } from '../ports/jobs.js'
 import type { ProviderQuotaLimits } from '../../infrastructure/database/providerQuota.js'
+import { assessPromotion, computePerformanceDrift } from '../../mlops.js'
+import { PrivacyRetentionCoordinator } from '../privacyCoordinator.js'
 
 export interface JobProcessorDependencies {
   repositories: PersistenceRepositories
@@ -27,6 +29,7 @@ export interface JobProcessorDependencies {
   quotas: {
     apiFootball: ProviderQuotaLimits
     footballData: ProviderQuotaLimits
+    footballDataOrg: ProviderQuotaLimits
   }
   apiFootballMinimumGapMs: number
 }
@@ -40,7 +43,17 @@ export function createJobProcessors(
     [SystemJobTypes.MODEL_TRAINING, trainingProcessor(dependencies)],
     [SystemJobTypes.EVALUATION, evaluationProcessor(dependencies)],
     [SystemJobTypes.BACKTEST, backtestProcessor(dependencies)],
+    [SystemJobTypes.PRIVACY_RETENTION, retentionProcessor(dependencies)],
   ])
+}
+
+function retentionProcessor(dependencies: JobProcessorDependencies): JobProcessor {
+  return async (context) => {
+    await context.throwIfCancelled()
+    const result = await new PrivacyRetentionCoordinator(dependencies.repositories.privacy).purgeExpired()
+    await context.throwIfCancelled()
+    return { metadata: { ...result, containsPii: false } }
+  }
 }
 
 function ingestionProcessor(dependencies: JobProcessorDependencies): JobProcessor {
@@ -52,6 +65,7 @@ function ingestionProcessor(dependencies: JobProcessorDependencies): JobProcesso
         minimumGapMs: dependencies.apiFootballMinimumGapMs,
         signal: context.signal,
         operation: () => fetch(url, { ...init, signal: context.signal }),
+        maxAttempts: 3,
       })
     const footballDataFetcher = (url: string) =>
       dependencies.externalRequests.execute({
@@ -60,10 +74,21 @@ function ingestionProcessor(dependencies: JobProcessorDependencies): JobProcesso
         minimumGapMs: 0,
         signal: context.signal,
         operation: () => fetch(url, { signal: context.signal }),
+        maxAttempts: 3,
+      })
+    const footballDataOrgFetcher = (url: string, init?: { headers?: Record<string, string> }) =>
+      dependencies.externalRequests.execute({
+        provider: 'football-data-org',
+        limits: dependencies.quotas.footballDataOrg,
+        minimumGapMs: 6_000,
+        signal: context.signal,
+        operation: () => fetch(url, { ...init, signal: context.signal }),
+        maxAttempts: 3,
       })
     const report = await syncData(dependencies.repositories, {
       apiFootballFetcher,
       footballDataFetcher,
+      footballDataOrgFetcher,
       beforePersist: context.throwIfCancelled,
     })
     await context.throwIfCancelled()
@@ -105,7 +130,7 @@ export async function enqueueNormalizationAfterIngestion(
 function normalizationProcessor(dependencies: JobProcessorDependencies): JobProcessor {
   return async (context) => {
     const datasetVersionId = await requiredDatasetVersion(context, dependencies.jobs)
-    const rows = await dependencies.repositories.sports.readTrainingRows()
+    const rows = await dependencies.repositories.sports.readTrainingRows(datasetVersionId)
     await context.throwIfCancelled()
     const featureTable = buildFeatureTable(rows)
     await dependencies.repositories.systemState.set(`normalized_dataset:${datasetVersionId}`, {
@@ -138,11 +163,14 @@ function trainingProcessor(dependencies: JobProcessorDependencies): JobProcessor
   return async (context) => {
     const datasetVersionId = await requiredDatasetVersion(context, dependencies.jobs)
     return dependencies.trainingLock.runExclusive(datasetVersionId, async () => {
-      const rows = await dependencies.repositories.sports.readTrainingRows()
+      const rows = await dependencies.repositories.sports.readTrainingRows(datasetVersionId)
       await context.throwIfCancelled()
       const featureTable = buildFeatureTable(rows)
+      const seed = mlopsSeed(context)
       const model = trainModel(featureTable.records, {
         minRows: numberPayload(context, 'minRows') ?? 5,
+        seed,
+        codeVersion: process.env.APP_RELEASE?.trim() ?? 'development',
       })
       await context.throwIfCancelled()
       const saved = await dependencies.repositories.models.saveModel(
@@ -159,6 +187,7 @@ function trainingProcessor(dependencies: JobProcessorDependencies): JobProcessor
           requestId: context.requestId,
           requestedByUserId: context.requestedByUserId,
           parentJobId: context.jobId,
+          payload: { seed },
         })
       }
       return {
@@ -172,19 +201,40 @@ function trainingProcessor(dependencies: JobProcessorDependencies): JobProcessor
 
 function evaluationProcessor(dependencies: JobProcessorDependencies): JobProcessor {
   return async (context) => {
-    const rows = await dependencies.repositories.sports.readTrainingRows()
+    const rows = await dependencies.repositories.sports.readTrainingRows(context.datasetVersionId)
     await context.throwIfCancelled()
     const features = buildFeatureTable(rows)
     const report = evaluateModel(features.records, {
       minRows: numberPayload(context, 'minRows') ?? 5,
+      validationRatio: numberPayload(context, 'validationRatio') ?? 0.2,
       testRatio: numberPayload(context, 'testRatio') ?? 0.2,
+      seed: mlopsSeed(context),
+      datasetVersionId: context.datasetVersionId,
+      modelVersionId: context.modelVersionId,
+      codeVersion: process.env.APP_RELEASE?.trim() ?? 'development',
     })
+    const champion = await dependencies.repositories.models.getChampionEvaluation()
+    report.performanceDrift = computePerformanceDrift(report.metrics, champion?.metrics)
+    report.promotion = assessPromotion(report.metrics, champion?.metrics)
+    if (report.drift.status === 'critical' && report.promotion.decision === 'promote') {
+      report.promotion = {
+        ...report.promotion,
+        decision: 'hold',
+        reasons: [...report.promotion.reasons, 'Drift de dados critico bloqueia promocao automatica.'],
+      }
+    }
     await context.throwIfCancelled()
     await dependencies.repositories.models.saveEvaluation(
       'evaluation',
       report,
       context.jobId,
       context.modelVersionId,
+    )
+    if (!context.modelVersionId) throw new Error('Avaliação sem modelVersionId não pode decidir promoção.')
+    await dependencies.repositories.models.applyPromotionDecision(
+      context.modelVersionId,
+      report.promotion,
+      context.jobId,
     )
     return {
       datasetVersionId: context.datasetVersionId,
@@ -196,13 +246,17 @@ function evaluationProcessor(dependencies: JobProcessorDependencies): JobProcess
 
 function backtestProcessor(dependencies: JobProcessorDependencies): JobProcessor {
   return async (context) => {
-    const rows = await dependencies.repositories.sports.readTrainingRows()
+    const rows = await dependencies.repositories.sports.readTrainingRows(context.datasetVersionId)
     await context.throwIfCancelled()
     const features = buildFeatureTable(rows)
     const minRows = numberPayload(context, 'minRows') ?? 5
     const report = runBacktest(features.records, {
       minRows,
       initialWindow: numberPayload(context, 'initialWindow') ?? minRows,
+      seed: mlopsSeed(context),
+      datasetVersionId: context.datasetVersionId,
+      modelVersionId: context.modelVersionId,
+      codeVersion: process.env.APP_RELEASE?.trim() ?? 'development',
     })
     await context.throwIfCancelled()
     await dependencies.repositories.models.saveEvaluation(
@@ -217,6 +271,18 @@ function backtestProcessor(dependencies: JobProcessorDependencies): JobProcessor
       metadata: { generatedAt: report.generatedAt },
     }
   }
+}
+
+function mlopsSeed(context: JobExecutionContext): number {
+  const payloadSeed = numberPayload(context, 'seed')
+  if (payloadSeed !== undefined) return payloadSeed
+
+  const configured = process.env.MLOPS_SEED?.trim()
+  if (!configured) return DEFAULT_MLOPS_SEED
+  if (!/^\d+$/.test(configured)) throw new Error('MLOPS_SEED deve ser um inteiro nao negativo.')
+  const seed = Number(configured)
+  if (!Number.isSafeInteger(seed)) throw new Error('MLOPS_SEED esta fora do intervalo seguro.')
+  return seed
 }
 
 async function requiredDatasetVersion(

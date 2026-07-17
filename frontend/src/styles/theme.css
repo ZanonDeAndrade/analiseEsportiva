@@ -28,14 +28,16 @@
   --accent-3: #ff8c42;
   --accent-soft: rgba(255, 106, 26, 0.13);
   --accent-soft-2: rgba(255, 106, 26, 0.32);
+  --signal: #ff8c42;
+  --signal-soft: rgba(255, 140, 66, 0.14);
 
   /* Text ramp (dark -> light) */
-  --muted-3: #5e656f;
-  --muted-2: #6b727c;
-  --muted-4: #7d848d;
-  --muted: #8b929b;
-  --muted-5: #9aa1ab;
-  --muted-6: #a4abb4;
+  --muted-3: #959da7;
+  --muted-2: #a0a8b2;
+  --muted-4: #aab1ba;
+  --muted: #b2b8c0;
+  --muted-5: #bcc2ca;
+  --muted-6: #c5cad1;
   --text-2: #c0c5cd;
   --text-3: #cfd4da;
   --text: #eceef2;
@@ -55,7 +57,9 @@
   --lg-l1: #4ec3e0;
   --lg-bun: #e0524e;
 
-  --font: 'Archivo', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font: 'Segoe UI Variable', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Segoe UI Variable Display', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-data: 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
 }
 
 * {
@@ -78,6 +82,8 @@ body {
 
 #root {
   height: 100vh;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* Scrollbars (ported from the design) */
@@ -102,4 +108,20 @@ input::placeholder {
 
 button {
   font-family: var(--font);
+}
+
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 3px;
+}
+
+button:disabled { cursor: not-allowed; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

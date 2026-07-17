@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { and, desc, eq, max, sql } from 'drizzle-orm'
+import { and, desc, eq, max, ne, sql } from 'drizzle-orm'
 import type { ModelRepository } from '../../application/ports/persistence.js'
 import type {
   BacktestReport,
@@ -7,6 +7,7 @@ import type {
   EvaluationReport,
   MarketModel,
   SegmentModel,
+  PromotionDecision,
 } from '../../schemas.js'
 import type { BetIntelDatabase } from './client.js'
 import {
@@ -14,6 +15,7 @@ import {
   datasetVersions,
   evaluations,
   modelSegments,
+  modelPromotionEvents,
   modelVersions,
 } from './schema.js'
 
@@ -24,15 +26,21 @@ const ETHICAL_NOTICE =
 export class PostgresModelRepository implements ModelRepository {
   constructor(private readonly db: BetIntelDatabase) {}
 
-  async getActiveModel(): Promise<BetIntelModel | null> {
+  async getActiveModel(): Promise<(BetIntelModel & { modelVersionId: string; datasetVersionId: string }) | null> {
     const rows = await this.db
-      .select({ payload: modelVersions.payload })
+      .select({ id: modelVersions.id, datasetVersionId: modelVersions.datasetVersionId, payload: modelVersions.payload })
       .from(modelVersions)
       .where(and(eq(modelVersions.modelKey, MODEL_KEY), eq(modelVersions.status, 'ready')))
       .orderBy(desc(modelVersions.version))
       .limit(1)
 
-    return rows[0] ? (rows[0].payload as unknown as BetIntelModel) : null
+    return rows[0]
+      ? {
+          ...(rows[0].payload as unknown as BetIntelModel),
+          modelVersionId: rows[0].id,
+          datasetVersionId: rows[0].datasetVersionId,
+        }
+      : null
   }
 
   async saveModel(
@@ -64,33 +72,9 @@ export class PostgresModelRepository implements ModelRepository {
       }
 
       if (!selectedDatasetId) {
-        const versions = await tx
-          .select({ version: max(datasetVersions.version) })
-          .from(datasetVersions)
-          .where(eq(datasetVersions.datasetKey, 'runtime-training'))
-        const datasetHash = sha256(
-          JSON.stringify({
-            trainingRows: modelValue.trainingRows,
-            providers: modelValue.sourceProviders,
-            updatedAt: modelValue.updatedAt,
-          }),
+        throw new Error(
+          'Treino recusado: importe ou sincronize um dataset versionado antes de salvar o modelo.',
         )
-        const insertedDataset = await tx
-          .insert(datasetVersions)
-          .values({
-            datasetKey: 'runtime-training',
-            version: Number(versions[0]?.version ?? 0) + 1,
-            contentSha256: datasetHash,
-            status: 'ready',
-            acceptedRows: modelValue.trainingRows,
-            sourceProviders: modelValue.sourceProviders,
-          })
-          .onConflictDoUpdate({
-            target: datasetVersions.contentSha256,
-            set: { status: 'ready' },
-          })
-          .returning({ id: datasetVersions.id })
-        selectedDatasetId = insertedDataset[0].id
       }
 
       const versions = await tx
@@ -101,6 +85,13 @@ export class PostgresModelRepository implements ModelRepository {
       const payload = modelValue as unknown as Record<string, unknown>
       const payloadSha256 = sha256(JSON.stringify(payload))
 
+      const existingArtifact = await tx
+        .select({ id: modelVersions.id, version: modelVersions.version })
+        .from(modelVersions)
+        .where(eq(modelVersions.artifactFingerprint, modelValue.provenance.artifactFingerprint))
+        .limit(1)
+      if (existingArtifact[0]) return existingArtifact[0]
+
       const existingPayload = await tx
         .select({ id: modelVersions.id, version: modelVersions.version })
         .from(modelVersions)
@@ -108,24 +99,23 @@ export class PostgresModelRepository implements ModelRepository {
         .limit(1)
       if (existingPayload[0]) return existingPayload[0]
 
-      await tx
-        .update(modelVersions)
-        .set({ status: 'retired', retiredAt: new Date().toISOString() })
-        .where(and(eq(modelVersions.modelKey, MODEL_KEY), eq(modelVersions.status, 'ready')))
-
       const inserted = await tx
         .insert(modelVersions)
         .values({
           modelKey: MODEL_KEY,
           version: nextVersion,
           datasetVersionId: selectedDatasetId,
-          status: 'ready',
+          status: 'challenger',
           minRows: modelValue.minRows,
           trainingRows: modelValue.trainingRows,
           payload,
           payloadSha256,
+          codeVersion: modelValue.provenance.codeVersion,
+          featureSetVersion: modelValue.provenance.featureSetVersion,
+          modelSchemaVersion: modelValue.provenance.modelSchemaVersion,
+          hyperparameters: modelValue.provenance.hyperparameters,
+          artifactFingerprint: modelValue.provenance.artifactFingerprint,
           trainedAt: modelValue.createdAt,
-          activatedAt: new Date().toISOString(),
           sourceJobId,
         })
         .returning({ id: modelVersions.id, version: modelVersions.version })
@@ -135,7 +125,7 @@ export class PostgresModelRepository implements ModelRepository {
       await tx.execute(sql`select set_config('app.service_role', 'worker', true)`)
       await tx.insert(auditLog).values({
         scope: 'system',
-        action: 'model.version_activated',
+        action: 'model.challenger_created',
         targetType: 'model_version',
         targetId: inserted[0].id,
         metadata: {
@@ -160,13 +150,26 @@ export class PostgresModelRepository implements ModelRepository {
     const rows = await this.db
       .select({ payload: evaluations.payload })
       .from(evaluations)
-      .where(eq(evaluations.kind, kind))
+      .where(and(eq(evaluations.kind, kind), sql`${evaluations.payload} @> '{"trace": {}}'::jsonb`))
       .orderBy(desc(evaluations.generatedAt))
       .limit(1)
 
     return rows[0]
       ? (rows[0].payload as unknown as EvaluationReport | BacktestReport)
       : null
+  }
+
+  async getChampionEvaluation(): Promise<EvaluationReport | null> {
+    const rows = await this.db.select({ payload: evaluations.payload })
+      .from(evaluations)
+      .innerJoin(modelVersions, eq(evaluations.modelVersionId, modelVersions.id))
+      .where(and(
+        eq(evaluations.kind, 'evaluation'),
+        eq(modelVersions.status, 'ready'),
+        sql`${evaluations.payload} @> '{"trace": {}}'::jsonb`,
+      ))
+      .orderBy(desc(evaluations.generatedAt)).limit(1)
+    return rows[0] ? (rows[0].payload as unknown as EvaluationReport) : null
   }
 
   async saveEvaluation(kind: 'evaluation', report: EvaluationReport, sourceJobId?: string, modelVersionId?: string): Promise<void>
@@ -213,6 +216,7 @@ export class PostgresModelRepository implements ModelRepository {
         trainRows: evaluation?.trainRows ?? backtest?.initialWindow ?? 0,
         testRows: evaluation?.testRows ?? backtest?.evaluatedRows ?? 0,
         metrics: report.metrics,
+        baselines: Object.fromEntries(report.metrics.map((metric) => [metric.market, metric.baselines])),
         ignoredMarkets: evaluation?.ignoredMarkets ?? [],
         payload: report as unknown as Record<string, unknown>,
         ethicalNotice: ETHICAL_NOTICE,
@@ -231,6 +235,91 @@ export class PostgresModelRepository implements ModelRepository {
         })
       }
     })
+  }
+
+  async applyPromotionDecision(
+    modelVersionId: string,
+    decision: PromotionDecision,
+    sourceJobId?: string,
+  ): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${MODEL_KEY}))`)
+      const candidate = await tx.select({ id: modelVersions.id, status: modelVersions.status })
+        .from(modelVersions).where(eq(modelVersions.id, modelVersionId)).limit(1)
+      if (!candidate[0]) throw new Error('Model version candidata não encontrada.')
+      const champion = await tx.select({ id: modelVersions.id }).from(modelVersions)
+        .where(and(eq(modelVersions.modelKey, MODEL_KEY), eq(modelVersions.status, 'ready')))
+        .orderBy(desc(modelVersions.version)).limit(1)
+
+      if (decision.decision === 'promote') {
+        await tx.update(modelVersions).set({
+          status: 'retired', retiredAt: new Date().toISOString(),
+        }).where(and(eq(modelVersions.modelKey, MODEL_KEY), eq(modelVersions.status, 'ready'), ne(modelVersions.id, modelVersionId)))
+        await tx.update(modelVersions).set({
+          status: 'ready', activatedAt: new Date().toISOString(), retiredAt: null,
+        }).where(eq(modelVersions.id, modelVersionId))
+      } else if (decision.decision === 'reject') {
+        await tx.update(modelVersions).set({ status: 'rejected' }).where(eq(modelVersions.id, modelVersionId))
+      }
+
+      if (decision.decision !== 'hold') {
+        await tx.insert(modelPromotionEvents).values({
+          modelVersionId,
+          previousChampionId: champion[0]?.id,
+          action: decision.decision,
+          decision: decision as unknown as Record<string, unknown>,
+          sourceJobId,
+        })
+      }
+      await tx.execute(sql`select set_config('app.service_role', 'worker', true)`)
+      await tx.insert(auditLog).values({
+        scope: 'system',
+        action: decision.decision === 'promote' ? 'model.promoted' : decision.decision === 'reject' ? 'model.rejected' : 'model.held',
+        targetType: 'model_version',
+        targetId: modelVersionId,
+        metadata: { before: { championId: champion[0]?.id ?? null }, after: decision as unknown as Record<string, unknown> },
+      })
+    })
+  }
+
+  async rollbackModel(modelVersionId: string, reason: string, sourceJobId?: string): Promise<boolean> {
+    return this.db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${MODEL_KEY}))`)
+      const target = await tx.select({ id: modelVersions.id, status: modelVersions.status })
+        .from(modelVersions).where(and(eq(modelVersions.id, modelVersionId), eq(modelVersions.modelKey, MODEL_KEY))).limit(1)
+      if (!target[0] || target[0].status !== 'retired') return false
+      const champion = await tx.select({ id: modelVersions.id }).from(modelVersions)
+        .where(and(eq(modelVersions.modelKey, MODEL_KEY), eq(modelVersions.status, 'ready'))).limit(1)
+      await tx.update(modelVersions).set({ status: 'retired', retiredAt: new Date().toISOString() })
+        .where(and(eq(modelVersions.modelKey, MODEL_KEY), eq(modelVersions.status, 'ready')))
+      await tx.update(modelVersions).set({ status: 'ready', activatedAt: new Date().toISOString(), retiredAt: null })
+        .where(eq(modelVersions.id, modelVersionId))
+      await tx.insert(modelPromotionEvents).values({
+        modelVersionId, previousChampionId: champion[0]?.id, action: 'rollback',
+        decision: { reason }, sourceJobId,
+      })
+      await tx.execute(sql`select set_config('app.service_role', 'worker', true)`)
+      await tx.insert(auditLog).values({
+        scope: 'system', action: 'model.rollback', targetType: 'model_version', targetId: modelVersionId,
+        metadata: { before: { championId: champion[0]?.id ?? null }, after: { reason, restoredModelVersionId: modelVersionId } },
+      })
+      return true
+    })
+  }
+
+  async listModelVersions() {
+    const rows = await this.db.select({
+      id: modelVersions.id,
+      version: modelVersions.version,
+      status: modelVersions.status,
+      datasetVersionId: modelVersions.datasetVersionId,
+      codeVersion: modelVersions.codeVersion,
+      featureSetVersion: modelVersions.featureSetVersion,
+      artifactFingerprint: modelVersions.artifactFingerprint,
+      trainedAt: modelVersions.trainedAt,
+      activatedAt: modelVersions.activatedAt,
+    }).from(modelVersions).where(eq(modelVersions.modelKey, MODEL_KEY)).orderBy(desc(modelVersions.version)).limit(100)
+    return rows.map((row) => ({ ...row, activatedAt: row.activatedAt ?? undefined }))
   }
 }
 

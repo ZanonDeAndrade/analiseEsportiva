@@ -144,18 +144,6 @@ const RAW: RawMatch[] = [
     confidence: 'Média', homeWin: 45, draw: 26, awayWin: 29, over15: 85, over25: 61, bothTeamsScore: 66,
     homeAvgGoalsFor: 2.1, awayAvgGoalsFor: 1.9, homeAvgGoalsAgainst: 1.2, awayAvgGoalsAgainst: 1.3, cleanSheets: 1,
   },
-  {
-    id: 'm16', leagueId: 'WC2026', date: '11 Jun', time: '16:00', period: '7dias',
-    homeTeam: 'Mexico', awayTeam: 'South Africa', homeForm: f('VEVDE'), awayForm: f('DVEEV'),
-    confidence: 'Baixa', homeWin: 39, draw: 31, awayWin: 30, over15: 70, over25: 45, bothTeamsScore: 51,
-    homeAvgGoalsFor: 1.4, awayAvgGoalsFor: 1.2, homeAvgGoalsAgainst: 1.1, awayAvgGoalsAgainst: 1.3, cleanSheets: 2,
-  },
-  {
-    id: 'm17', leagueId: 'WC2026', date: '12 Jun', time: '19:00', period: '7dias',
-    homeTeam: 'United States', awayTeam: 'Canada', homeForm: f('VVEVD'), awayForm: f('EVDDV'),
-    confidence: 'Baixa', homeWin: 43, draw: 29, awayWin: 28, over15: 74, over25: 48, bothTeamsScore: 54,
-    homeAvgGoalsFor: 1.6, awayAvgGoalsFor: 1.4, homeAvgGoalsAgainst: 1.2, awayAvgGoalsAgainst: 1.2, cleanSheets: 2,
-  },
 ]
 
 /* ---- derived content (recent games + AI summary) ------------------------ */
@@ -166,7 +154,6 @@ const OPPONENT_POOL: Record<LeagueId, string[]> = {
   LL: ['Villarreal', 'Real Sociedad', 'Betis', 'Valencia', 'Girona'],
   L1: ['Lille', 'Nice', 'Rennes', 'Lens', 'Nantes'],
   BUN: ['Stuttgart', 'Frankfurt', 'Wolfsburg', 'Freiburg', 'Union Berlin'],
-  WC2026: ['Brasil', 'Argentina', 'France', 'Spain', 'Japan'],
 }
 
 function scoreFor(letter: Result, i: number): string {
