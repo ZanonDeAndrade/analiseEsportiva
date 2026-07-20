@@ -331,6 +331,8 @@ export interface BacktestReport {
   period: { from: string; to: string }
   trace: EvaluationTrace
   drift: DriftReport
+  /** Duração do backtest incremental em milissegundos (ETAPA 16). */
+  durationMs: number
 }
 
 export interface PromotionDecision {

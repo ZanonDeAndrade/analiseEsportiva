@@ -38,6 +38,8 @@ Cobertura funcional:
 - Incerteza (`models/bootstrap`, `models/skillScore`): block bootstrap determinístico por seed (metodo/repeticoes/seed reportados) e skill score com veredito supera/equivalente/pior conforme o IC exclua ou contenha zero.
 - Hiperparametros (`models/hyperparameters`): config padrao valida, combinacoes invalidas rejeitadas, gridSearch determinístico que registra experimentos, pula invalidos e respeita o limite.
 - Promocao (`models/promotion`): validated so com os 9 criterios; nao valida por maior Brier isolado (reprova por calibracao/regressao/inconsistencia) e ciclo de vida com transicoes validas.
+- Backtest incremental (`backtesting`, `incrementalModel`): equivalencia exata com a implementacao de referencia (retreino), determinismo e relatorio de duracao; dataset completo em ~linear.
+- Confianca e dados_insuficientes (`models/confidence`): diferenciacao das causas (ausente/zero/amostra/sem-historico/equipe-nova/feature-indisponivel) e confianca calculada dos seis fatores com aviso de que nao e promessa.
 
 Testes PostgreSQL reais:
 

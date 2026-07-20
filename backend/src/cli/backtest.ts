@@ -23,7 +23,7 @@ runCli(async () => {
     const quality = assessDataQuality(rows, issues)
     const report = runBacktest(quality.records, { minRows, initialWindow, seed })
 
-    console.log('Modo offline (CSV): backtest temporal calculado sem PostgreSQL.')
+    console.log(`Modo offline (CSV): backtest temporal incremental calculado sem PostgreSQL (${report.durationMs} ms).`)
     console.log(`Qualidade: ${quality.accepted} aceitas / ${quality.rejected} rejeitadas / ${quality.warnings} avisos / ${quality.duplicates} duplicadas`)
     console.log(`Janela inicial: ${report.initialWindow}; amostra avaliada: ${report.evaluatedRows}`)
     console.log(`Periodo: ${report.period.from} a ${report.period.to}`)

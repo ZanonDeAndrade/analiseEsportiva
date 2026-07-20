@@ -2,7 +2,8 @@ import type { BacktestReport, EngineeredMatchRecord, MarketId } from './schemas.
 import { deriveMarketLabels } from './markets.js'
 import { MARKET_IDS } from './schemas.js'
 import { predictMarkets } from './prediction.js'
-import { DEFAULT_MLOPS_SEED, trainModel } from './training.js'
+import { DEFAULT_MLOPS_SEED } from './training.js'
+import { IncrementalFrequencyModel } from './incrementalModel.js'
 import {
   summarizeMarketObservations,
   type EvaluationObservation,
@@ -32,43 +33,57 @@ export function runBacktest(
   let ignoredPredictions = 0
   let evaluatedRows = 0
 
-  for (const target of ordered) {
-    const trainRows = ordered.filter((candidate) => instant(candidate) < instant(target))
-    if (trainRows.length < initialWindow) continue
-    if (trainRows.some((candidate) => instant(candidate) >= instant(target))) {
-      throw new TemporalLeakageError('Backtest tentou treinar com registro simultâneo ou posterior ao alvo.')
-    }
-    evaluatedRows += 1
-    const model = trainModel(trainRows, {
-      minRows: options.minRows,
-      seed: options.seed,
-      codeVersion: options.codeVersion,
-      generatedAt: options.generatedAt,
-    })
-    const response = predictMarkets(model, requestFor(target))
-    ignoredPredictions += response.ignoredMarkets.length
+  const startedAt = performance.now()
+  // Estado incremental: acumular uma partida por vez equivale a treinar sobre todo
+  // o passado, sem retreino O(n²). As partidas da MESMA data são previstas com o
+  // estado anterior à data (look-back estrito) e só depois entram no estado.
+  const model = new IncrementalFrequencyModel({
+    minRows: options.minRows,
+    seed: options.seed,
+    codeVersion: options.codeVersion,
+    generatedAt: options.generatedAt,
+  })
+  let accumulated = 0
+  let cursor = 0
+  while (cursor < ordered.length) {
+    const groupInstant = instant(ordered[cursor])
+    const groupStart = cursor
+    while (cursor < ordered.length && instant(ordered[cursor]) === groupInstant) cursor += 1
+    const group = ordered.slice(groupStart, cursor)
 
-    for (const market of MARKET_IDS) {
-      const labels = deriveMarketLabels(target, market)
-      if (!labels) continue
-      eligibleRows.set(market, (eligibleRows.get(market) ?? 0) + 1)
-      const prediction = response.availableMarkets.find((item) => item.market === market)
-      if (!prediction) continue
-      const row = prediction.selections.map((selection) => ({
-        row: target.index,
-        selection: selection.key,
-        probability: Math.max(0.000001, Math.min(0.999999, selection.probability / 100)),
-        actual: labels.labels[selection.key] ? 1 : 0,
-      }))
-      observations.set(market, [...(observations.get(market) ?? []), ...row])
-      if (market === '1X2') {
-        const counter = categorical.get(market) ?? { correct: 0, total: 0 }
-        counter.total += 1
-        if ([...row].sort((left, right) => right.probability - left.probability)[0]?.actual === 1) counter.correct += 1
-        categorical.set(market, counter)
+    if (accumulated >= initialWindow) {
+      const snapshot = model.snapshot()
+      for (const target of group) {
+        evaluatedRows += 1
+        const response = predictMarkets(snapshot, requestFor(target))
+        ignoredPredictions += response.ignoredMarkets.length
+        for (const market of MARKET_IDS) {
+          const labels = deriveMarketLabels(target, market)
+          if (!labels) continue
+          eligibleRows.set(market, (eligibleRows.get(market) ?? 0) + 1)
+          const prediction = response.availableMarkets.find((item) => item.market === market)
+          if (!prediction) continue
+          const row = prediction.selections.map((selection) => ({
+            row: target.index,
+            selection: selection.key,
+            probability: Math.max(0.000001, Math.min(0.999999, selection.probability / 100)),
+            actual: labels.labels[selection.key] ? 1 : 0,
+          }))
+          observations.set(market, [...(observations.get(market) ?? []), ...row])
+          if (market === '1X2') {
+            const counter = categorical.get(market) ?? { correct: 0, total: 0 }
+            counter.total += 1
+            if ([...row].sort((left, right) => right.probability - left.probability)[0]?.actual === 1) counter.correct += 1
+            categorical.set(market, counter)
+          }
+        }
       }
     }
+
+    for (const target of group) model.update(target)
+    accumulated += group.length
   }
+  const durationMs = Math.round(performance.now() - startedAt)
 
   const baselineRows = ordered.slice(0, Math.min(initialWindow, ordered.length))
   const metrics = MARKET_IDS.flatMap((market) => {
@@ -103,6 +118,7 @@ export function runBacktest(
     period: { from: ordered[0]?.date ?? 'unknown', to: ordered.at(-1)?.date ?? 'unknown' },
     trace,
     drift: computeDataDrift(split.train, split.test),
+    durationMs,
   }
 }
 
