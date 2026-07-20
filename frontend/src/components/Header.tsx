@@ -1,4 +1,5 @@
-import { LogoMark, MenuIcon, SearchIcon, SparkIcon } from './Icons'
+import betIntelLogo from '../assets/betintel-logo.png'
+import { MenuIcon, SearchIcon, SparkIcon } from './Icons'
 import styles from './Header.module.css'
 import type { OrganizationSummary } from '../lib/saasApi'
 
@@ -69,7 +70,7 @@ export default function Header({
 
       <div className={styles.brand}>
         <div className={styles.logo}>
-          <LogoMark />
+          <img src={betIntelLogo} alt="" />
         </div>
         <div className={styles.wordmark}>
           BetIntel<span>&nbsp;AI</span>

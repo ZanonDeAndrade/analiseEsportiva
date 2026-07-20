@@ -68,13 +68,23 @@ Consultas administrativas diretas devem ocorrer somente por procedimento autoriz
 
 ## Gateway e cancelamento
 
-Stripe Billing continua apenas proposto no ADR 0006. Não há SDK, checkout, preço, Product/Price ID, webhook, provedor de e-mail ou política comercial ativa. A página de Planos exibe os textos que deverão anteceder uma futura contratação, mas o botão permanece desabilitado e marcar a prévia não grava aceite.
+O gateway Stripe, Checkout hospedado, Customer Portal e webhook assinado estão
+implementados em modo opt-in. Sem `STRIPE_BILLING_ENABLED=true`, o catálogo pode
+ser comparado, mas checkout e portal permanecem desabilitados. Habilitar exige os
+quatro Price IDs e uma referência auditável aos gates comercial, jurídico, fiscal
+e de dados. O provedor de e-mail e a política comercial final continuam pendentes.
 
-Quando um `BillingPortalGateway` real for ativado, ele deve resolver plano/preço no servidor, persistir o aceite de finalidade `subscription` antes de criar a assinatura, interromper renovação no provedor, reconciliar webhook e retornar `notificationStatus='sent'` somente após confirmação do provedor de e-mail.
+O gateway resolve plano/preço no servidor, persiste o aceite de finalidade
+`subscription` antes do Checkout, interrompe renovação no provedor e reconcilia
+webhooks por Event ID. Enquanto não houver provedor de e-mail, cancelamento retorna
+`notificationStatus='not_configured'`, nunca `sent` fictício.
 
 ## Variáveis de ambiente
 
-Não foram adicionadas variáveis. A evidência reutiliza `REQUEST_IP_HASH_KEY` (mínimo de 32 caracteres) para HMAC do IP e as configurações existentes de PostgreSQL/Auth0. Nunca use a chave do provedor esportivo, segredo Auth0 ou segredo futuro do gateway no frontend.
+As variáveis, separação test/live, Price IDs e webhook estão em
+[`stripe-billing.md`](stripe-billing.md). A evidência reutiliza
+`REQUEST_IP_HASH_KEY` para HMAC do IP. Chave secreta e segredo de webhook existem
+somente no backend/secret manager, nunca no frontend.
 
 ## Campos pendentes
 

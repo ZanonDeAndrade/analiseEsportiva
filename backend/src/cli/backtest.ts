@@ -1,11 +1,13 @@
+import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { runBacktest } from '../backtesting.js'
-import { readCsvFile } from '../csv.js'
+import { parseCsvDetailed } from '../csv.js'
+import { assessDataQuality } from '../dataQuality.js'
 import { buildFeatureTable } from '../featureEngineering.js'
 import { createDatabaseConnection } from '../infrastructure/database/client.js'
 import { createPostgresRepositories } from '../infrastructure/database/repositories.js'
 import { parseArgs, numberArg, stringArg } from './args.js'
-import { normalizeRecordDates, requireDatabaseUrl, runCli, writeResult } from './pipelineRunner.js'
+import { requireDatabaseUrl, runCli, writeResult } from './pipelineRunner.js'
 
 runCli(async () => {
   const args = parseArgs(process.argv.slice(2))
@@ -16,13 +18,13 @@ runCli(async () => {
   const seed = numberArg(args, 'seed', Number(process.env.MLOPS_SEED ?? 2026))
 
   if (csvPath) {
-    // Modo academico/offline: backtest temporal calculado a partir do CSV.
-    const rows = await readCsvFile(resolve(csvPath))
-    const featureTable = buildFeatureTable(rows)
-    const records = normalizeRecordDates(featureTable.records)
-    const report = runBacktest(records, { minRows, initialWindow, seed })
+    // Modo academico/offline: valida os dados e roda o backtest, sem PostgreSQL.
+    const { rows, issues } = parseCsvDetailed(await readFile(resolve(csvPath), 'utf8'))
+    const quality = assessDataQuality(rows, issues)
+    const report = runBacktest(quality.records, { minRows, initialWindow, seed })
 
     console.log('Modo offline (CSV): backtest temporal calculado sem PostgreSQL.')
+    console.log(`Qualidade: ${quality.accepted} aceitas / ${quality.rejected} rejeitadas / ${quality.warnings} avisos / ${quality.duplicates} duplicadas`)
     console.log(`Janela inicial: ${report.initialWindow}; amostra avaliada: ${report.evaluatedRows}`)
     console.log(`Periodo: ${report.period.from} a ${report.period.to}`)
     for (const metric of report.metrics) {

@@ -17,8 +17,9 @@ ou recomendação.
 - jogos e análise probabilística;
 - suporte, base de conhecimento, termos, privacidade e aviso ético.
 
-O billing responde como não configurado e não exibe
-catálogo, faturas ou checkout fictícios.
+O catálogo server-side permanece visível para comparação. Sem gateway opt-in, o
+billing responde como não configurado, não exibe assinatura/fatura fictícia e
+mantém checkout e portal desabilitados.
 
 ## Dados, cache e atualização
 

@@ -14,6 +14,8 @@ export default function BillingPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month')
+  const [recurringBillingAccepted, setRecurringBillingAccepted] = useState(false)
+  const checkoutResult = new URLSearchParams(window.location.search).get('checkout')
 
   const refresh = async (signal?: AbortSignal) => {
     setLoading(true)
@@ -58,6 +60,8 @@ export default function BillingPage() {
     </header>
 
     {error && <p className={styles.error} role="alert">{error}</p>}
+    {checkoutResult === 'success' && <p className={styles.notice} role="status">Checkout concluído. A assinatura será exibida após a confirmação assinada do Stripe.</p>}
+    {checkoutResult === 'cancelled' && <p className={styles.notice} role="status">Checkout cancelado. Nenhuma nova assinatura foi confirmada.</p>}
     {loading
       ? <AsyncState kind="loading" title="Carregando planos" detail="Consultando o catálogo e a assinatura da conta." />
       : !overview
@@ -114,12 +118,21 @@ export default function BillingPage() {
                 </ul>
                 <div className={billingStyles.planFooter}>
                   <small>{scopeLabel(plan.entitlements)}</small>
-                  <button className={styles.button} disabled={busy || !configured} onClick={() => void redirect(() => createCheckout(getAccessTokenSilently, plan.planKey))}>
+                  <button className={styles.button} disabled={busy || !configured || !recurringBillingAccepted} onClick={() => void redirect(() => createCheckout(getAccessTokenSilently, plan.planKey, recurringBillingAccepted))}>
                     {configured ? 'Assinar plano' : 'Checkout em breve'}
                   </button>
                 </div>
               </article>)}
             </div>}
+            <label className={billingStyles.billingConsent}>
+              <input
+                type="checkbox"
+                checked={recurringBillingAccepted}
+                disabled={!configured || busy}
+                onChange={(event) => setRecurringBillingAccepted(event.target.checked)}
+              />
+              <span>Confirmo que tenho 18 anos ou mais, li os <a href="/termos-de-uso" target="_blank" rel="noreferrer">Termos</a>, a <a href="/politica-de-privacidade" target="_blank" rel="noreferrer">Política de Privacidade</a>, o aviso de risco e autorizo a cobrança recorrente do plano escolhido até o cancelamento.</span>
+            </label>
             <p className={billingStyles.disclaimer}>A assinatura concede acesso ao conteúdo estatístico do plano. Não inclui recomendação de aposta nem promessa de acerto.</p>
           </section>
 

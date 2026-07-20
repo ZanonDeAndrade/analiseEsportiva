@@ -352,7 +352,9 @@ O erro não inclui stack, SQL, token, dados de outro tenant ou payload do proved
 | `POST /webhooks/stripe` | assinatura Stripe | raw body, inbox idempotente, resposta rápida |
 | `POST /webhooks/auth0` | assinatura/segredo verificado | sincronização idempotente de eventos quando habilitada |
 
-Rotas de billing permanecem fora do runtime até os gates de negócio e jurídicos. A documentação do contrato não autoriza sua ativação.
+As rotas de billing existem no runtime, mas o gateway permanece opt-in e falha
+fechado até os gates, segredos e Price IDs do ambiente serem configurados. A
+documentação do contrato, isoladamente, não autoriza sua ativação.
 
 ### Contrato de análise
 

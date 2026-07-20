@@ -11,6 +11,7 @@ import type { WorkspaceRepository } from '../../../application/ports/workspace.j
 import type { OperationsRepository } from '../../../application/ports/operations.js'
 import type { PrivacyRepository } from '../../../application/ports/privacy.js'
 import type { BillingPortalGateway } from './routes/billing.js'
+import type { StripeWebhookGateway } from './routes/stripeWebhooks.js'
 import type { DatabaseConnection } from '../../../infrastructure/database/client.js'
 import { createBetIntelHttpServer, type HttpServerDependencies } from '../../../httpApp.js'
 
@@ -305,6 +306,75 @@ test('catalogo de planos vem do servidor mesmo antes de habilitar checkout', asy
   await app.close()
 })
 
+test('checkout exige aceite recorrente e persiste preço resolvido no servidor', async () => {
+  let accepted: Parameters<LegalRepository['recordAcceptances']>[1] | undefined
+  let checkoutPlan: string | undefined
+  const billingPortal: BillingPortalGateway = {
+    createPortal: async () => ({ url: 'https://billing.stripe.test', expiresAt: '2026-07-20T00:00:00.000Z' }),
+    createCheckout: async (_actor, planKey) => {
+      checkoutPlan = planKey
+      return { url: 'https://checkout.stripe.test', expiresAt: '2026-07-20T00:00:00.000Z' }
+    },
+  }
+  const app = testApp({
+    billingPortal,
+    recordAcceptances: async (actor, input) => {
+      accepted = input
+      return legalDocuments().map((document) => ({
+        id: randomUUID(), evidenceEventId: randomUUID(), userId: actor.userId,
+        organizationId: actor.organizationId, legalDocumentId: document.id,
+        documentType: document.type, documentVersion: document.version,
+        acceptanceGroup: document.acceptanceGroup, acceptancePurpose: input.purpose,
+        acceptedAt: new Date().toISOString(), contentHash: document.contentHash,
+        documentUrl: document.documentUrl, evidenceMetadata: {},
+      }))
+    },
+  })
+  const missingConsent = await app.inject({
+    method: 'POST', url: '/v1/billing/checkout',
+    headers: { ...authHeaders(), 'idempotency-key': 'checkout-without-consent' },
+    payload: { planKey: 'brasileirao', recurringBillingAccepted: false },
+  })
+  assert.equal(missingConsent.statusCode, 400)
+
+  const response = await app.inject({
+    method: 'POST', url: '/v1/billing/checkout',
+    headers: { ...authHeaders(), 'idempotency-key': 'checkout-with-consent' },
+    payload: { planKey: 'brasileirao', recurringBillingAccepted: true },
+  })
+  assert.equal(response.statusCode, 201, response.body)
+  assert.equal(checkoutPlan, 'brasileirao')
+  assert.equal(accepted?.purpose, 'subscription')
+  assert.equal(accepted?.declarations.recurringBilling, true)
+  assert.equal(accepted?.evidence.priceMinor, 1990)
+  assert.equal(accepted?.evidence.currency, 'BRL')
+  await app.close()
+})
+
+test('webhook Stripe é público e entrega os bytes exatos ao verificador', async () => {
+  let receivedBody = ''
+  let receivedSignature = ''
+  const app = testApp({
+    stripeWebhook: {
+      processWebhook: async (body, signature) => {
+        receivedBody = body.toString('utf8')
+        receivedSignature = signature
+        return { duplicate: false }
+      },
+    },
+  })
+  const rawBody = '{"id":"evt_raw_test","type":"invoice.paid"}'
+  const response = await app.inject({
+    method: 'POST', url: '/webhooks/stripe',
+    headers: { 'content-type': 'application/json', 'stripe-signature': 't=1,v1=test' },
+    payload: rawBody,
+  })
+  assert.equal(response.statusCode, 200, response.body)
+  assert.equal(receivedBody, rawBody)
+  assert.equal(receivedSignature, 't=1,v1=test')
+  await app.close()
+})
+
 test('rotas administrativas apenas enfileiram e idempotência reaproveita o job', async () => {
   let calls = 0
   const app = testApp({
@@ -414,6 +484,7 @@ function testApp(options: {
   metricsBearerToken?: string
   recordAcceptances?: LegalRepository['recordAcceptances']
   billingPortal?: BillingPortalGateway
+  stripeWebhook?: StripeWebhookGateway
   platformAdminSubjects?: string[]
 } = {}) {
   const actor = options.actor ?? owner
@@ -531,6 +602,7 @@ function testApp(options: {
     readinessRedis: options.redisCheck ? { ping: options.redisCheck } : undefined,
     metricsBearerToken: options.metricsBearerToken,
     billingPortal: options.billingPortal,
+    stripeWebhook: options.stripeWebhook,
   }
   return createBetIntelHttpServer(dependencies)
 }

@@ -10,6 +10,7 @@ import { PostgresLegalRepository } from './legalRepository.js'
 import { PostgresWorkspaceRepository } from './workspaceRepository.js'
 import { PostgresOperationsRepository } from './operationsRepository.js'
 import { PostgresPrivacyRepository } from './privacyRepository.js'
+import { PostgresBillingRepository } from './billingRepository.js'
 import { AesGcmFieldCipher } from '../../application/fieldEncryption.js'
 import { piiFieldEncryptionConfig } from '../../config.js'
 
@@ -29,5 +30,6 @@ export function createPostgresRepositories(
     workspace: new PostgresWorkspaceRepository(connection.db),
     operations: new PostgresOperationsRepository(connection.db, cipher),
     privacy: new PostgresPrivacyRepository(connection.db, cipher),
+    billing: new PostgresBillingRepository(connection.db),
   }
 }

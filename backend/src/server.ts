@@ -16,6 +16,7 @@ import {
   readinessTimeoutMs,
   requestIpHashKey,
   shutdownGracePeriodMs,
+  stripeBillingConfig,
   validateRuntimeConfiguration,
 } from './config.js'
 import { Redis } from 'ioredis'
@@ -32,6 +33,7 @@ import { installGracefulShutdown } from './runtime/gracefulShutdown.js'
 import { shutdownTelemetry } from './telemetry/instrumentation.js'
 import { captureOperationalError } from './telemetry/errors.js'
 import { telemetryMetrics } from './telemetry/metrics.js'
+import { StripeBillingGateway } from './infrastructure/billing/stripeBillingGateway.js'
 
 validateRuntimeConfiguration('api')
 const host = backendHost()
@@ -47,6 +49,16 @@ const repositories = createPostgresRepositories(connection)
 const identityProvider = new Auth0IdentityProvider(auth0ServerConfig())
 const identityService = new IdentityService(identityProvider, repositories.identity)
 const organizationService = new OrganizationService(repositories.organizations, identityProvider)
+const stripeConfig = stripeBillingConfig()
+let stripeBilling: StripeBillingGateway | undefined
+try {
+  stripeBilling = stripeConfig
+    ? await StripeBillingGateway.create(repositories.billing, stripeConfig)
+    : undefined
+} catch (error) {
+  await connection.close()
+  throw error
+}
 const configuredRedisUrl = redisUrl()
 const rateLimitRedis = configuredRedisUrl
   ? new Redis(configuredRedisUrl, {
@@ -83,6 +95,8 @@ const server = createBetIntelHttpServer({
   trustProxyHops: httpTrustProxyHops(),
   metricsBearerToken: metricsBearerToken(),
   platformAdminSubjects: platformAdminSubjects(),
+  billingPortal: stripeBilling,
+  stripeWebhook: stripeBilling,
 })
 
 try {

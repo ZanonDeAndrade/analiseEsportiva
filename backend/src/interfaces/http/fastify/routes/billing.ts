@@ -4,8 +4,12 @@ import { ApiError, ProblemSchema } from '../problem.js'
 import { IdempotencyHeadersSchema } from '../schemas.js'
 import { actorFrom } from './helpers.js'
 import { billingPlanByKey, publicBillingPlans } from '../../../../billingCatalog.js'
+import type { LegalRepository } from '../../../../application/ports/legal.js'
+import { hashRemoteAddress } from '../plugins/authentication.js'
+import { BillingGatewayError } from '../../../../application/ports/billing.js'
 
 export interface BillingPortalGateway {
+  readonly checkoutEnabled?: boolean
   createPortal(actor: ActorContext, idempotencyKey: string): Promise<{ url: string; expiresAt: string }>
   createCheckout?(
     actor: ActorContext,
@@ -72,7 +76,9 @@ export interface BillingCancellationConfirmation {
 
 export const billingRoutes: FastifyPluginAsyncTypebox<{
   billingPortal?: BillingPortalGateway
-}> = async (app, { billingPortal }) => {
+  legal: LegalRepository
+  requestIpHashKey: string
+}> = async (app, { billingPortal, legal, requestIpHashKey }) => {
   app.get('/billing/subscription', {
     config: { permission: 'private.read' },
     schema: {
@@ -102,6 +108,7 @@ export const billingRoutes: FastifyPluginAsyncTypebox<{
       },
     },
   }, async (request, reply) => {
+    requireBillingOwner(actorFrom(request))
     if (!billingPortal) {
       throw new ApiError(
         503,
@@ -130,7 +137,7 @@ export const billingRoutes: FastifyPluginAsyncTypebox<{
       ? await billingPortal.getOverview(actorFrom(request))
       : null
     return {
-      configured: Boolean(billingPortal?.createCheckout),
+      configured: Boolean(billingPortal?.createCheckout && billingPortal.checkoutEnabled !== false),
       overview: {
         plans: publicBillingPlans(),
         subscription: providerOverview?.subscription ?? null,
@@ -144,20 +151,64 @@ export const billingRoutes: FastifyPluginAsyncTypebox<{
     config: { permission: 'private.write' },
     schema: {
       tags: ['billing'], security: [{ bearerAuth: [] }], headers: IdempotencyHeadersSchema,
-      body: Type.Object({ planKey: Type.String({ minLength: 1, maxLength: 100 }) }, { additionalProperties: false }),
+      body: Type.Object({
+        planKey: Type.String({ minLength: 1, maxLength: 100 }),
+        recurringBillingAccepted: Type.Literal(true),
+      }, { additionalProperties: false }),
       response: { 201: Type.Object({ url: Type.String(), expiresAt: Type.String() }), default: ProblemSchema },
     },
   }, async (request, reply) => {
+    const actor = actorFrom(request)
+    requireBillingOwner(actor)
     const plan = billingPlanByKey(request.body.planKey)
     if (!plan) {
       throw new ApiError(400, 'invalid_plan', 'Plano inexistente ou indisponivel para contratacao.')
     }
-    if (!billingPortal?.createCheckout) {
+    if (!billingPortal?.createCheckout || billingPortal.checkoutEnabled === false) {
       throw new ApiError(503, 'billing_not_configured', 'Checkout indisponivel enquanto o gateway e os gates comercial e juridico nao estiverem ativos.')
     }
-    const checkout = await billingPortal.createCheckout(
-      actorFrom(request), plan.planKey, String(request.headers['idempotency-key']),
-    )
+    const idempotencyKey = String(request.headers['idempotency-key'])
+    const legalStatus = await legal.acceptanceStatus(actor)
+    const privacy = legalStatus.requiredDocuments.find((document) => document.type === 'privacy')
+    const risk = legalStatus.requiredDocuments.find((document) => document.type === 'risk')
+    if (!privacy || !risk || legalStatus.requiredDocuments.length < 3) {
+      throw new ApiError(503, 'legal_documents_unavailable', 'Documentos jurídicos ativos não estão disponíveis para registrar a assinatura.')
+    }
+    const acceptances = await legal.recordAcceptances(actor, {
+      purpose: 'subscription',
+      idempotencyKey,
+      documents: legalStatus.requiredDocuments.map(({ type, version, contentHash }) => ({ type, version, contentHash })),
+      declarations: {
+        age18: true,
+        termsAndPrivacy: true,
+        risk: true,
+        recurringBilling: request.body.recurringBillingAccepted,
+      },
+      evidence: {
+        origin: 'subscription',
+        ipHash: hashRemoteAddress(request.ip, requestIpHashKey),
+        userAgent: headerValue(request.headers['user-agent']),
+        planKey: plan.planKey,
+        billingCycle: plan.interval,
+        priceMinor: plan.priceMinor,
+        currency: plan.currency,
+        transactionId: idempotencyKey,
+        riskVersion: risk.version,
+        privacyVersion: privacy.version,
+      },
+    })
+    if (acceptances.length !== legalStatus.requiredDocuments.length) {
+      throw new ApiError(503, 'legal_acceptance_failed', 'Não foi possível registrar integralmente o aceite da assinatura.')
+    }
+    let checkout: { url: string; expiresAt: string }
+    try {
+      checkout = await billingPortal.createCheckout(actor, plan.planKey, idempotencyKey)
+    } catch (error) {
+      if (error instanceof BillingGatewayError) {
+        throw new ApiError(error.code === 'invalid_plan' ? 400 : 409, error.code, error.message)
+      }
+      throw error
+    }
     return reply.code(201).send(checkout)
   })
 
@@ -174,6 +225,7 @@ export const billingRoutes: FastifyPluginAsyncTypebox<{
       },
     },
   }, async (request) => {
+    requireBillingOwner(actorFrom(request))
     if (!billingPortal?.cancelSubscription) {
       throw new ApiError(
         503,
@@ -190,4 +242,14 @@ export const billingRoutes: FastifyPluginAsyncTypebox<{
       cancellation,
     }
   })
+}
+
+function requireBillingOwner(actor: ActorContext) {
+  if (actor.role !== 'owner') {
+    throw new ApiError(403, 'forbidden', 'Somente o proprietário da organização pode alterar a assinatura.')
+  }
+}
+
+function headerValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value
 }

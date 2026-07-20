@@ -42,11 +42,16 @@
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: linear-gradient(135deg, #ff6a1a, #ff9d4d);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow: hidden;
+  background: #020403;
   box-shadow: 0 4px 14px -4px rgba(255, 106, 26, 0.7);
+}
+
+.logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .wordmark {

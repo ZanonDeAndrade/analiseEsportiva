@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { validateRuntimeConfiguration } from './config.js'
+import { stripeBillingConfig, validateRuntimeConfiguration } from './config.js'
 
 const MANAGED_KEYS = [
   'NODE_ENV',
@@ -40,6 +40,18 @@ const MANAGED_KEYS = [
   'FOOTBALL_DATA_ORG_LICENSE_REFERENCE',
   'FOOTBALL_DATA_ORG_ALLOWED_ENVIRONMENTS',
   'BETINTEL_ENABLE_FOOTBALL_DATA',
+  'STRIPE_BILLING_ENABLED',
+  'STRIPE_CHECKOUT_ENABLED',
+  'STRIPE_SECRET_KEY',
+  'STRIPE_WEBHOOK_SECRET',
+  'STRIPE_PRICE_BRASILEIRAO_MONTHLY',
+  'STRIPE_PRICE_TODAS_LIGAS_MONTHLY',
+  'STRIPE_PRICE_BRASILEIRAO_YEARLY',
+  'STRIPE_PRICE_TODAS_LIGAS_YEARLY',
+  'STRIPE_BILLING_PORTAL_CONFIGURATION_ID',
+  'STRIPE_AUTOMATIC_TAX_ENABLED',
+  'BILLING_APP_URL',
+  'BILLING_APPROVAL_REFERENCE',
 ] as const
 
 test('migration valida somente o ambiente e o banco necessarios', () => {
@@ -141,6 +153,31 @@ test('API implantada recusa placeholders e origem sem TLS', () => {
   })
   withEnvironment({ ...environment, CORS_ALLOWED_ORIGINS: 'http://app.betintel.test' }, () => {
     assert.throws(() => validateRuntimeConfiguration('api'), /somente HTTPS/)
+  })
+})
+
+test('Stripe fica opt-in e exige o catálogo completo do ambiente', () => {
+  withEnvironment({ NODE_ENV: 'test', BETINTEL_ENVIRONMENT: 'test' }, () => {
+    assert.equal(stripeBillingConfig(), undefined)
+  })
+  const enabled = {
+    NODE_ENV: 'test',
+    BETINTEL_ENVIRONMENT: 'test',
+    STRIPE_BILLING_ENABLED: 'true',
+    STRIPE_SECRET_KEY: 'sk_test_example123',
+    STRIPE_WEBHOOK_SECRET: 'whsec_example123',
+    BILLING_APP_URL: 'http://localhost:5173',
+    BILLING_APPROVAL_REFERENCE: 'approval-test-2026-07',
+    STRIPE_PRICE_BRASILEIRAO_MONTHLY: 'price_brasileirao_monthly',
+    STRIPE_PRICE_TODAS_LIGAS_MONTHLY: 'price_todas_monthly',
+    STRIPE_PRICE_BRASILEIRAO_YEARLY: 'price_brasileirao_yearly',
+    STRIPE_PRICE_TODAS_LIGAS_YEARLY: 'price_todas_yearly',
+  }
+  withEnvironment(enabled, () => {
+    assert.equal(stripeBillingConfig()?.priceIds['todas-ligas-anual'], 'price_todas_yearly')
+  })
+  withEnvironment({ ...enabled, STRIPE_PRICE_TODAS_LIGAS_YEARLY: '' }, () => {
+    assert.throws(() => stripeBillingConfig(), /STRIPE_PRICE_TODAS_LIGAS_YEARLY/)
   })
 })
 

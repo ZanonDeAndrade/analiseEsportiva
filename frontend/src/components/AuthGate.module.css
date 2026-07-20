@@ -79,14 +79,18 @@
 .brandMark {
   width: 38px;
   height: 38px;
-  display: grid;
-  place-items: center;
   flex: 0 0 auto;
   border-radius: 10px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #120904;
-  font: 900 19px/1 var(--font-display);
+  overflow: hidden;
+  background: #020403;
   box-shadow: 0 10px 24px rgb(255 106 26 / 18%);
+}
+
+.brandMark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .brand {

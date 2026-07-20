@@ -76,6 +76,9 @@ permissão declarada no schema da rota.
 | `/v1/me`, `/v1/account/*` | conta e sessões |
 | `/v1/organizations*`, `/v1/organization/*` | organização, membros e convites |
 | `POST /v1/billing/portal` | porta de portal; responde `503` sem gateway aprovado |
+| `GET /v1/billing/overview` | catálogo server-side e estado local reconciliado |
+| `POST /v1/billing/checkout` | aceite explícito; servidor resolve Price ID |
+| `POST /webhooks/stripe` | corpo bruto, assinatura Stripe e deduplicação |
 | `GET /v1/internal/observability` | contadores protegidos por `system.manage` |
 
 Rotas administrativas protegidas são assíncronas:
@@ -148,8 +151,8 @@ implementados em processos separados; detalhes operacionais estão em
 indisponibilidade do Redis; novos requests podem ser recusados pelo rate limit
 fail-closed até a recuperação.
 
-O portal de billing permanece desativado até gateway, catálogo, webhooks,
-validação comercial e revisão jurídica serem aprovados.
+O gateway Stripe está implementado de forma opt-in e permanece desativado por
+padrão. Configuração e gates estão em [`stripe-billing.md`](stripe-billing.md).
 
 ## Testes e reprodução
 

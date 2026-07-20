@@ -13,6 +13,17 @@ export interface ValidatedRuntimeConfiguration {
   role: RuntimeRole
 }
 
+export interface StripeBillingConfiguration {
+  secretKey: string
+  webhookSecret: string
+  appUrl: string
+  portalConfigurationId?: string
+  approvalReference: string
+  automaticTax: boolean
+  checkoutEnabled: boolean
+  priceIds: Record<'brasileirao' | 'todas-ligas' | 'brasileirao-anual' | 'todas-ligas-anual', string>
+}
+
 export type SportsProviderName = 'api-football' | 'football-data' | 'football-data-org'
 
 export interface ProviderUseConfiguration {
@@ -49,6 +60,7 @@ export function validateRuntimeConfiguration(
     metricsBearerToken()
     platformAdminSubjects()
     piiFieldEncryptionConfig()
+    stripeBillingConfig()
   }
 
   if (role === 'worker') {
@@ -79,6 +91,68 @@ export function validateRuntimeConfiguration(
   }
 
   return { environment, role }
+}
+
+/**
+ * Billing remains opt-in. Setting only a Stripe key never enables checkout:
+ * the deploy must also carry an auditable approval reference and the complete
+ * server-side Price mapping for that environment.
+ */
+export function stripeBillingConfig(): StripeBillingConfiguration | undefined {
+  if (!booleanEnvironment('STRIPE_BILLING_ENABLED', false)) return undefined
+
+  const secretKey = requiredEnvironment('STRIPE_SECRET_KEY')
+  const webhookSecret = requiredEnvironment('STRIPE_WEBHOOK_SECRET')
+  const appUrl = requiredEnvironment('BILLING_APP_URL').replace(/\/$/, '')
+  const approvalReference = requiredEnvironment('BILLING_APPROVAL_REFERENCE')
+  const environment = deploymentEnvironment()
+
+  if (!/^sk_(test|live)_[A-Za-z0-9_]+$/.test(secretKey)) {
+    throw new Error('STRIPE_SECRET_KEY possui formato invalido.')
+  }
+  if (!/^whsec_[A-Za-z0-9_]+$/.test(webhookSecret)) {
+    throw new Error('STRIPE_WEBHOOK_SECRET possui formato invalido.')
+  }
+  if (environment === 'production' && !secretKey.startsWith('sk_live_')) {
+    throw new Error('STRIPE_SECRET_KEY deve usar modo live em production.')
+  }
+  if (environment !== 'production' && secretKey.startsWith('sk_live_')) {
+    throw new Error('STRIPE_SECRET_KEY live nao pode ser usada fora de production.')
+  }
+  validateUrl('BILLING_APP_URL', appUrl, isDeployedEnvironment() ? ['https:'] : ['http:', 'https:'])
+  if (isDeployedEnvironment() && ['localhost', '127.0.0.1', '::1'].includes(new URL(appUrl).hostname)) {
+    throw new Error('BILLING_APP_URL nao pode apontar para loopback em ambiente implantado.')
+  }
+  if (approvalReference.length < 6 || approvalReference.length > 200 || /[\r\n]/.test(approvalReference)) {
+    throw new Error('BILLING_APPROVAL_REFERENCE possui formato invalido.')
+  }
+
+  const priceIds = {
+    brasileirao: stripePriceId('STRIPE_PRICE_BRASILEIRAO_MONTHLY'),
+    'todas-ligas': stripePriceId('STRIPE_PRICE_TODAS_LIGAS_MONTHLY'),
+    'brasileirao-anual': stripePriceId('STRIPE_PRICE_BRASILEIRAO_YEARLY'),
+    'todas-ligas-anual': stripePriceId('STRIPE_PRICE_TODAS_LIGAS_YEARLY'),
+  }
+  const portalConfigurationId = process.env.STRIPE_BILLING_PORTAL_CONFIGURATION_ID?.trim()
+  if (portalConfigurationId && !/^bpc_[A-Za-z0-9_]+$/.test(portalConfigurationId)) {
+    throw new Error('STRIPE_BILLING_PORTAL_CONFIGURATION_ID possui formato invalido.')
+  }
+  return {
+    secretKey,
+    webhookSecret,
+    appUrl,
+    portalConfigurationId,
+    approvalReference,
+    automaticTax: booleanEnvironment('STRIPE_AUTOMATIC_TAX_ENABLED', false),
+    checkoutEnabled: booleanEnvironment('STRIPE_CHECKOUT_ENABLED', true),
+    priceIds,
+  }
+}
+
+function stripePriceId(name: string) {
+  const value = requiredEnvironment(name)
+  if (!/^price_[A-Za-z0-9_]+$/.test(value)) throw new Error(`${name} possui formato invalido.`)
+  return value
 }
 
 export function deploymentEnvironment(): DeploymentEnvironment {

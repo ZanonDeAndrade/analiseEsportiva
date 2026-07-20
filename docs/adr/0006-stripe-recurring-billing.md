@@ -1,6 +1,6 @@
 # ADR 0006 — Stripe Billing atrás de um gateway próprio
 
-- Estado: Proposto
+- Estado: Aceito com gate operacional
 - Data: 2026-07-15
 - Decisores: produto, financeiro, jurídico e engenharia
 
@@ -18,7 +18,7 @@ Regras:
 - o cliente nunca envia valor monetário, Price ID confiável, plano efetivo ou estado da assinatura;
 - checkout e portal são criados no servidor para a organização e o customer já mapeados;
 - endpoint `/webhooks/stripe` preserva o corpo bruto, verifica assinatura e timestamp, grava uma inbox com `provider_event_id` único e responde rapidamente;
-- processamento assíncrono idempotente atualiza `billing.subscriptions` e `billing.entitlements` por transação;
+- processamento idempotente reconcilia `billing.subscriptions` e faturas locais; a evolução para fila dedicada deve preservar a mesma inbox;
 - acesso é derivado do entitlement local reconciliado com eventos/API do provedor, nunca do redirect de sucesso;
 - chamadas mutáveis ao provedor usam idempotency key estável;
 - catálogo, regras de grace period e overrides administrativos são versionados e auditados no servidor;

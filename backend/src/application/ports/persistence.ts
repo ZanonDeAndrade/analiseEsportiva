@@ -15,6 +15,7 @@ import type { WorkspaceRepository } from './workspace.js'
 import type { OperationsRepository } from './operations.js'
 import type { PrivacyRepository } from './privacy.js'
 import type { FixtureLifecycleStatus, MatchDecision } from '../../domain/sportsData.js'
+import type { BillingRepository } from './billing.js'
 
 export interface FixtureQuery {
   competition?: string
@@ -195,4 +196,5 @@ export interface PersistenceRepositories {
   workspace: WorkspaceRepository
   operations: OperationsRepository
   privacy: PrivacyRepository
+  billing: BillingRepository
 }

@@ -120,10 +120,14 @@ export async function openBillingPortal(getToken: AccessTokenProvider) {
   })
 }
 
-export async function createCheckout(getToken: AccessTokenProvider, planKey: string) {
+export async function createCheckout(
+  getToken: AccessTokenProvider,
+  planKey: string,
+  recurringBillingAccepted: boolean,
+) {
   return authenticatedFetchJson<{ url: string; expiresAt: string }>('/v1/billing/checkout', getToken, {
     method: 'POST', headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() },
-    body: JSON.stringify({ planKey }),
+    body: JSON.stringify({ planKey, recurringBillingAccepted }),
   })
 }
 

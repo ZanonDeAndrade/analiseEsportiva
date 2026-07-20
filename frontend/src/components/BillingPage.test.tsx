@@ -85,6 +85,20 @@ it('nunca exibe NaN nem uma área vazia quando recebe temporariamente o catálog
   expect(screen.getByText(/não retornou opções de cobrança anual/i)).toBeVisible()
 })
 
+it('só habilita checkout após aceite explícito da cobrança recorrente', async () => {
+  const current = await loadBillingMock()
+  loadBillingMock.mockResolvedValueOnce({ ...current, configured: true })
+
+  render(<BillingPage />)
+
+  const buttons = await screen.findAllByRole('button', { name: 'Assinar plano' })
+  expect(buttons[0]).toBeDisabled()
+  const consent = screen.getByRole('checkbox', { name: /autorizo a cobrança recorrente/i })
+  fireEvent.click(consent)
+  expect(buttons[0]).toBeEnabled()
+  expect(buttons[1]).toBeEnabled()
+})
+
 function plan(
   planKey: string,
   productKey: 'brasileirao' | 'todas-ligas',

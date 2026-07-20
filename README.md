@@ -10,6 +10,10 @@ A experiência autenticada, os fluxos de organização, conta, consultas, export
 billing transparente e a estratégia de atualização sem polling agressivo estão em
 [`docs/frontend-saas.md`](docs/frontend-saas.md).
 
+A configuração opt-in de Stripe Checkout, Customer Portal, webhooks assinados e
+passagem segura de modo teste para live está em
+[`docs/stripe-billing.md`](docs/stripe-billing.md).
+
 Controles técnicos de privacidade, direitos do titular, retenção e backups estão em
 [`docs/privacy-lgpd-controls.md`](docs/privacy-lgpd-controls.md). Suporte, SLA,
 escalonamento e operação diária estão em

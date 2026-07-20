@@ -35,6 +35,7 @@ import { supportRoutes } from './interfaces/http/fastify/routes/support.js'
 import { PrivacyCoordinator } from './application/privacyCoordinator.js'
 import type { PrivateCachePurger, PrivateObjectStorage } from './application/ports/privacy.js'
 import './interfaces/http/fastify/types.js'
+import { stripeWebhookRoutes, type StripeWebhookGateway } from './interfaces/http/fastify/routes/stripeWebhooks.js'
 
 export interface HttpServerDependencies {
   connection: DatabaseConnection
@@ -44,6 +45,7 @@ export interface HttpServerDependencies {
   corsAllowedOrigins: string[]
   requestIpHashKey: string
   billingPortal?: BillingPortalGateway
+  stripeWebhook?: StripeWebhookGateway
   environment?: string
   legacyRoutesEnabled?: boolean
   bodyLimit?: number
@@ -161,6 +163,10 @@ export function createBetIntelHttpServer(
   void app.register(tenancyPlugin)
   void app.register(authorizationPlugin)
 
+  if (dependencies.stripeWebhook) {
+    void app.register(stripeWebhookRoutes, { gateway: dependencies.stripeWebhook, prefix: '/webhooks' })
+  }
+
   void app.register(async (v1) => {
     await v1.register(healthRoutes, {
       connection: dependencies.connection,
@@ -184,7 +190,11 @@ export function createBetIntelHttpServer(
       models: dependencies.repositories.models,
       operations: dependencies.repositories.operations,
     })
-    await v1.register(billingRoutes, { billingPortal: dependencies.billingPortal })
+    await v1.register(billingRoutes, {
+      billingPortal: dependencies.billingPortal,
+      legal: dependencies.repositories.legal,
+      requestIpHashKey: dependencies.requestIpHashKey,
+    })
     await v1.register(legalRoutes, {
       legal: dependencies.repositories.legal,
       requestIpHashKey: dependencies.requestIpHashKey,

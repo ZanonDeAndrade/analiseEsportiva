@@ -1,5 +1,5 @@
-import { writeFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
 import { parseSourceDate } from '../import/dateParser.js'
 import type { EngineeredMatchRecord } from '../schemas.js'
 
@@ -49,6 +49,7 @@ export function normalizeRecordDates(records: EngineeredMatchRecord[]): Engineer
 export async function writeResult(outputPath: string | undefined, payload: unknown): Promise<void> {
   if (!outputPath) return
   const target = resolve(outputPath)
+  await mkdir(dirname(target), { recursive: true })
   await writeFile(target, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
   console.log(`Resultado salvo em ${target}`)
 }

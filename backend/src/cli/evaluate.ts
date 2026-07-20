@@ -1,12 +1,14 @@
+import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { readCsvFile } from '../csv.js'
+import { parseCsvDetailed } from '../csv.js'
+import { assessDataQuality } from '../dataQuality.js'
 import { evaluateModel } from '../evaluation.js'
 import { buildFeatureTable } from '../featureEngineering.js'
 import { createDatabaseConnection } from '../infrastructure/database/client.js'
 import { createPostgresRepositories } from '../infrastructure/database/repositories.js'
 import { assessPromotion, computePerformanceDrift } from '../mlops.js'
 import { parseArgs, numberArg, stringArg } from './args.js'
-import { normalizeRecordDates, requireDatabaseUrl, runCli, writeResult } from './pipelineRunner.js'
+import { requireDatabaseUrl, runCli, writeResult } from './pipelineRunner.js'
 
 function printMetrics(report: {
   trainRows: number
@@ -43,13 +45,13 @@ runCli(async () => {
   const seed = numberArg(args, 'seed', Number(process.env.MLOPS_SEED ?? 2026))
 
   if (csvPath) {
-    // Modo academico/offline: avaliacao temporal calculada a partir do CSV.
-    const rows = await readCsvFile(resolve(csvPath))
-    const featureTable = buildFeatureTable(rows)
-    const records = normalizeRecordDates(featureTable.records)
-    const report = evaluateModel(records, { minRows, validationRatio, testRatio, seed })
+    // Modo academico/offline: valida os dados e avalia temporalmente, sem PostgreSQL.
+    const { rows, issues } = parseCsvDetailed(await readFile(resolve(csvPath), 'utf8'))
+    const quality = assessDataQuality(rows, issues)
+    const report = evaluateModel(quality.records, { minRows, validationRatio, testRatio, seed })
 
     console.log('Modo offline (CSV): avaliacao temporal calculada sem PostgreSQL.')
+    console.log(`Qualidade: ${quality.accepted} aceitas / ${quality.rejected} rejeitadas / ${quality.warnings} avisos / ${quality.duplicates} duplicadas`)
     printMetrics(report)
     await writeResult(outputPath, report)
     return

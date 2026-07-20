@@ -7,6 +7,9 @@ frontend/dist/
 backend/dist/
 *.tsbuildinfo
 
+# Relatorios gerados pelos comandos de ML (reproduziveis por CLI)
+backend/reports/
+
 # Segredos e ambiente local (NUNCA versionar a chave da API)
 .env*
 !.env.example

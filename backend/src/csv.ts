@@ -23,7 +23,36 @@ export async function readCsvFile(path: string) {
   return parseCsv(await readFile(path, 'utf8'))
 }
 
+export interface CsvParseIssue {
+  code: string
+  reason: string
+}
+
+/**
+ * Como parseCsv, mas também reporta problemas estruturais do arquivo:
+ * aspas não fechadas e linhas com número de colunas divergente do cabeçalho.
+ */
+export function parseCsvDetailed(content: string): { rows: CsvRow[]; issues: CsvParseIssue[] } {
+  const { rows: rawRows, unterminatedQuote } = parseCsvRowsDetailed(content)
+  const issues: CsvParseIssue[] = []
+  if (unterminatedQuote) {
+    issues.push({ code: 'unterminated_quote', reason: 'CSV contém aspas não fechadas; o conteúdo após a aspa pode ter sido agregado incorretamente.' })
+  }
+  if (rawRows.length > 0) {
+    const columns = rawRows[0].length
+    const ragged = rawRows.slice(1).filter((row) => row.some((cell) => cell.trim() !== '') && row.length !== columns).length
+    if (ragged > 0) {
+      issues.push({ code: 'malformed_csv', reason: `${ragged} linha(s) com número de colunas divergente do cabeçalho (${columns}).` })
+    }
+  }
+  return { rows: parseCsv(content), issues }
+}
+
 function parseCsvRows(content: string): string[][] {
+  return parseCsvRowsDetailed(content).rows
+}
+
+function parseCsvRowsDetailed(content: string): { rows: string[][]; unterminatedQuote: boolean } {
   const rows: string[][] = []
   let currentRow: string[] = []
   let currentCell = ''
@@ -67,5 +96,5 @@ function parseCsvRows(content: string): string[][] {
     rows.push(currentRow)
   }
 
-  return rows
+  return { rows, unterminatedQuote: inQuotes }
 }

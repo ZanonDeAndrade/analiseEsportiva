@@ -1,5 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react'
 import { useState, type ReactNode } from 'react'
+import betIntelLogo from '../assets/betintel-logo.png'
 import { acceptanceTexts } from '../legal/acceptance-texts'
 import RiskWarning from './RiskWarning'
 import Spinner from './Spinner'
@@ -162,7 +163,7 @@ function AuthScreen({ eyebrow, title, children }: { eyebrow: string; title: stri
       <section className={styles.frame} aria-label="Acesso ao BetIntel AI">
         <aside className={styles.thesis} aria-label="Princípios da plataforma">
           <div className={styles.brandRow}>
-            <div className={styles.brandMark} aria-hidden="true">B</div>
+            <div className={styles.brandMark} aria-hidden="true"><img src={betIntelLogo} alt="" /></div>
             <div className={styles.brand}>BetIntel <span>AI</span><small>ANÁLISE ESPORTIVA</small></div>
           </div>
 
